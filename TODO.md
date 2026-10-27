@@ -146,8 +146,18 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
         tax/VAT (none). (Number format and invoice layout are now settled.)
 11. [x] **Git**: code committed and pushed to https://github.com/tannuthakur/Attendance (`main`), on top of the
         repo's "Initial commit". `.env.local`, `.claude/`, build output ignored; staged content scanned for keys.
-12. [ ] **Deploy**: Vercel + Supabase Cloud per `README.md` › Deploying (env vars, SMTP, production Site URL +
-        redirect URL).
+12. [~] **Deploy to Vercel** — project `attendance_payroll` (team `tannu17`), production URL
+        https://attendancepayroll.vercel.app. Status 27 Oct 2026:
+        - [x] Project exists and builds; env vars added; middleware now has a clear "missing env" message
+        - [ ] **Fix `NEXT_PUBLIC_SUPABASE_ANON_KEY`** — value in Vercel is missing the leading `s` (`b_publishable_…`,
+              45 chars) → Supabase rejects it → login shows "Invalid email or password"
+        - [ ] Set `NEXT_PUBLIC_SITE_URL` = `https://attendancepayroll.vercel.app` (currently `http://localhost:3000`)
+        - [ ] Re-paste `SUPABASE_SERVICE_ROLE_KEY` (sensitive, can't be verified)
+        - [ ] **Decision B (user):** Vercel must deploy from `tannuthakur/Attendance` — it is currently linked to
+              `tannuthakur/attendance_payroll` (an older copy without the last 2 fixes). Switch in Vercel ▸ Settings ▸ Git.
+        - [ ] Redeploy, then verify live login + pages + PDF preview
+        - [ ] Supabase Auth: Site URL + redirect URL for the Vercel domain; email templates; sign-ups off; SMTP
+        - [ ] Delete the Vercel token (pasted in chat) and remove `VERCEL_TOKEN` from `.env.local`
 
 Done from the earlier list: ~~Company data in Settings~~ (filled from the reference invoice) ·
 ~~Organisation invoice PDF format~~ (implemented, §3a).

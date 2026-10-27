@@ -41,3 +41,6 @@ lerna-debug.log*
 .tmp
 .DS_Store
 .claude/
+
+# Vercel CLI project link
+.vercel

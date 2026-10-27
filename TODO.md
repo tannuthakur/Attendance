@@ -148,14 +148,16 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
         repo's "Initial commit". `.env.local`, `.claude/`, build output ignored; staged content scanned for keys.
 12. [~] **Deploy to Vercel** — project `attendance_payroll` (team `tannu17`), production URL
         https://attendancepayroll.vercel.app. Status 27 Oct 2026:
-        - [x] Project exists and builds; env vars added; middleware now has a clear "missing env" message
-        - [ ] **Fix `NEXT_PUBLIC_SUPABASE_ANON_KEY`** — value in Vercel is missing the leading `s` (`b_publishable_…`,
-              45 chars) → Supabase rejects it → login shows "Invalid email or password"
-        - [ ] Set `NEXT_PUBLIC_SITE_URL` = `https://attendancepayroll.vercel.app` (currently `http://localhost:3000`)
-        - [ ] Re-paste `SUPABASE_SERVICE_ROLE_KEY` (sensitive, can't be verified)
-        - [ ] **Decision B (user):** Vercel must deploy from `tannuthakur/Attendance` — it is currently linked to
-              `tannuthakur/attendance_payroll` (an older copy without the last 2 fixes). Switch in Vercel ▸ Settings ▸ Git.
-        - [ ] Redeploy, then verify live login + pages + PDF preview
+        - [x] Project builds; env vars set; middleware shows a clear "missing env" message
+        - [x] Fixed `NEXT_PUBLIC_SUPABASE_ANON_KEY` (was missing the leading `s` → login failed with
+              "Invalid email or password"); set `NEXT_PUBLIC_SITE_URL` = https://attendancepayroll.vercel.app;
+              re-set `SUPABASE_SERVICE_ROLE_KEY` — all for Production + Preview (via Vercel API, user-approved)
+        - [x] Redeployed → **live login verified**; all 10 main pages load with no errors
+        - [ ] **User action:** give the Vercel GitHub App access to `tannuthakur/Attendance`
+              (github.com/settings/installations → Vercel → Configure → Repository access → add Attendance)
+        - [ ] Then relink the Vercel project from `tannuthakur/attendance_payroll` (old copy, missing the last
+              fixes) to `tannuthakur/Attendance` (decision B) and deploy `main` — Claude can do this via API
+        - [ ] Verify a PDF preview/download on the live site (needs a real invoice)
         - [ ] Supabase Auth: Site URL + redirect URL for the Vercel domain; email templates; sign-ups off; SMTP
         - [ ] Delete the Vercel token (pasted in chat) and remove `VERCEL_TOKEN` from `.env.local`
 

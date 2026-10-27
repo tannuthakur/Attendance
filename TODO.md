@@ -2,7 +2,7 @@
 
 > **Purpose:** single place to resume work if context is lost. Read this first, then `SPEC.md` (requirements)
 > and `docs/ARCHITECTURE.md` (code conventions).
-> **Last updated:** 27 Oct 2026 — after invoice-format change requests (rounds 1–4)
+> **Last updated:** 27 Oct 2026 — app live on Vercel (login verified); repo relink to `Attendance` pending
 
 Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `[ ]` not started
 
@@ -20,9 +20,16 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
   - Real data entered by the user: 12 employees, 2 projects (Saudi Living, Qatar Living), 12 assignments,
     311 attendance rows, 3 holidays, 1 invoice (soft-deleted). Demo data **not** loaded.
   - Invoice numbering: format `{PREFIX}{SEQ}`, prefix `S`, sequence `all` = 2535 → **next invoice S2536**.
-- **Next up:** generate the first real invoice (S2536) and check it; Supabase Auth email settings; then the
-  never-run test suites. See §3.
-- **Repo:** https://github.com/tannuthakur/Attendance — branch `main` (commit after each change request).
+- **Live (Vercel):** https://attendancepayroll.vercel.app — project `attendance_payroll`, team `tannu17`.
+  Login + all main pages verified 27 Oct 2026. ⚠ Vercel still deploys from the OLD copy repo
+  `tannuthakur/attendance_payroll`; user chose **B = deploy from `tannuthakur/Attendance`** → needs the Vercel GitHub
+  App to get access to `Attendance` (user action), then relink via Vercel API (see §3 item 12).
+  Vercel API token is in `.env.local` as `VERCEL_TOKEN` (temporary; IDs: team `team_bZreo23qVKrfMQG46jxgCLeW`,
+  project `prj_iJWoINKFYYiBUQg3mvTbt8C0jswm`). Changing Vercel settings/secrets needs the user's explicit OK.
+- **Next up:** (1) user grants Vercel GitHub App access to `Attendance` → relink + deploy; (2) Supabase Auth URL
+  config for the Vercel domain; (3) change admin password; (4) generate the first real invoice (S2536). See §3.
+- **Repo:** https://github.com/tannuthakur/Attendance — branch `main` (commit + push after each change; this is
+  the main repo — `attendance_payroll` is an old copy).
 - **Machine:** macOS, Node **20.20.2**, pnpm 12.14.0, **no Docker, no Supabase CLI, no Homebrew**.
   Node 20 needs `NODE_OPTIONS=--experimental-websocket` for supabase-js (already in package.json scripts).
   Playwright Chromium is installed (used for browser smoke checks).
@@ -118,7 +125,10 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
 - [x] Settings page shows company data, contact person, logo, signature, "Next number preview: S2536"
 - [x] Invoice PDF rendered from LIVE settings + project title matches the reference invoice
 - [x] Real data entry by the user (employees, projects, assignments, attendance, holidays) works
+- [x] **Production (Vercel):** sign-in works and dashboard, employees, projects, attendance, holidays, invoices,
+      generate invoice, users, roles, settings all load with no errors (after fixing the anon-key env var)
 - [ ] Generate the first real invoice through the wizard (S2536), Preview popup → Download, check the PDF
+      (locally and on Vercel — PDF rendering on Vercel's serverless runtime not yet exercised)
 - [ ] Viewer account walkthrough (no viewer user yet — create one in Admin ▸ Users)
 
 ---
@@ -228,6 +238,9 @@ Done from the earlier list: ~~Company data in Settings~~ (filled from the refere
 - Integration/e2e tests have never run — expect selector/column fixes on first run. Don't run them against the
   project with real data.
 - Client names containing commas can't be used in the invoice client multi-filter (URL comma separator).
+- Vercel: `NEXT_PUBLIC_*` values are baked in at build time — after changing them, **redeploy** (not just save).
+  Vercel shows a "remove public prefix" warning for `NEXT_PUBLIC_SUPABASE_ANON_KEY` — expected, ignore it.
+- Vercel API writes (env vars, project link) are blocked by Claude Code's permission check unless the user approves.
 - PDF font is Helvetica (built-in); the reference uses a DejaVu-like font — layout matches, glyph shapes differ slightly.
 
 ## 6. Where things are

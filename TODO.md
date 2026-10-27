@@ -167,7 +167,13 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
               (github.com/settings/installations → Vercel → Configure → Repository access → add Attendance)
         - [ ] Then relink the Vercel project from `tannuthakur/attendance_payroll` (old copy, missing the last
               fixes) to `tannuthakur/Attendance` (decision B) and deploy `main` — Claude can do this via API
-        - [ ] Verify a PDF preview/download on the live site (needs a real invoice)
+        - [x] **PDF preview fixed on Vercel** — failed with `Cannot find module …/pdfkit/js/standard-fonts/Helvetica.cjs`
+              (pdfkit loads fonts via package "imports" the file tracer can't follow). Fix: `outputFileTracingIncludes`
+              in `next.config.ts` for `/invoices/**`. Deployed with the Vercel CLI (`vercel deploy --prod`, local dir
+              linked via `.vercel/`, uploads filtered by `.vercelignore`) → live preview verified: popup opens, PDF
+              correct (logo, S2536, 7 lines, USD 16136.36, bank, signature).
+        - [ ] Until the GitHub relink is done, deploy with `npx vercel deploy --prod --token "$VERCEL_TOKEN" --scope tannu17`
+              (pushes to GitHub do NOT deploy yet)
         - [ ] Supabase Auth: Site URL + redirect URL for the Vercel domain; email templates; sign-ups off; SMTP
         - [ ] Delete the Vercel token (pasted in chat) and remove `VERCEL_TOKEN` from `.env.local`
 
@@ -241,6 +247,10 @@ Done from the earlier list: ~~Company data in Settings~~ (filled from the refere
 - Vercel: `NEXT_PUBLIC_*` values are baked in at build time — after changing them, **redeploy** (not just save).
   Vercel shows a "remove public prefix" warning for `NEXT_PUBLIC_SUPABASE_ANON_KEY` — expected, ignore it.
 - Vercel API writes (env vars, project link) are blocked by Claude Code's permission check unless the user approves.
+- With 7+ invoice lines, the bank-details/signature block moves to page 2 (it is kept together). Reference invoice
+  (6 lines) fits on one page. Tighten spacing if the business wants a single page.
+- Employee lines use the job role name ("Frontend", "Backend", "DevOps") — reference uses "Frontend Developer",
+  "DevOps Engineer": set *Role on project* on the assignment or rename the job roles in Admin ▸ Roles.
 - PDF font is Helvetica (built-in); the reference uses a DejaVu-like font — layout matches, glyph shapes differ slightly.
 
 ## 6. Where things are

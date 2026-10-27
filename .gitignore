@@ -44,3 +44,5 @@ lerna-debug.log*
 
 # Vercel CLI project link
 .vercel
+.env*
+!.env.example

@@ -8,11 +8,30 @@ export function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+/** Plain-text 500 naming the missing variables (instead of Vercel's opaque MIDDLEWARE_INVOCATION_FAILED). */
+function configError(missing: string[]) {
+  return new NextResponse(
+    `Server configuration error: missing environment variable(s) ${missing.join(', ')}.\n` +
+      'Set them in the hosting provider (e.g. Vercel → Project → Settings → Environment Variables) and redeploy — ' +
+      'NEXT_PUBLIC_* values are embedded at build time.',
+    { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } },
+  );
+}
+
 export async function updateSession(request: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    return configError([
+      ...(url ? [] : ['NEXT_PUBLIC_SUPABASE_URL']),
+      ...(anonKey ? [] : ['NEXT_PUBLIC_SUPABASE_ANON_KEY']),
+    ]);
+  }
+
   let response = NextResponse.next({ request });
   const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll: () => request.cookies.getAll(),

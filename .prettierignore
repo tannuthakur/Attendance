@@ -1,0 +1,5 @@
+.next
+coverage
+playwright-report
+pnpm-lock.yaml
+src/types/database.ts

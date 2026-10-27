@@ -1,0 +1,169 @@
+-- Demo data for local development (§12.6). Lookups, attendance statuses and settings are
+-- created by migrations; this file adds users and sample business data.
+--
+-- Logins:  admin@example.com / Admin@12345   (admin)
+--          viewer@example.com / Viewer@12345 (viewer)
+
+-- ---------------------------------------------------------------------------
+-- Users (auth.users + identities; profiles are created by trigger)
+-- ---------------------------------------------------------------------------
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, email_change, email_change_token_new, recovery_token
+) values
+  ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated',
+   'admin@example.com', crypt('Admin@12345', gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"],"access_role":"admin"}', '{"full_name":"Demo Admin"}', now(), now(), '', '', '', ''),
+  ('00000000-0000-0000-0000-000000000000', 'a0000000-0000-4000-8000-000000000002', 'authenticated', 'authenticated',
+   'viewer@example.com', crypt('Viewer@12345', gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"],"access_role":"viewer"}', '{"full_name":"Demo Viewer"}', now(), now(), '', '', '', '');
+
+insert into auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+select gen_random_uuid(), u.id, u.id::text,
+       jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true), 'email', now(), now(), now()
+  from auth.users u where u.email in ('admin@example.com', 'viewer@example.com');
+
+-- Act as the demo admin so RPCs, created_by and audit rows are attributed correctly.
+select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated"}', false);
+select set_config('request.jwt.claim.sub', 'a0000000-0000-4000-8000-000000000001', false);
+
+update public.app_settings set
+  company_name = 'Sunfocus Solutions Pvt. Ltd.',
+  company_address = E'Plot 12, IT Park\nMohali, Punjab, India',
+  company_email = 'accounts@example.com',
+  company_phone = '+91 00000 00000',
+  tax_id = 'GSTIN-DEMO-0000',
+  bank_details = E'Bank: Demo Bank\nA/C: 000000000000\nSWIFT: DEMOINBB',
+  invoice_footer = 'Thank you for your business.'
+where id = 1;
+
+-- ---------------------------------------------------------------------------
+-- Employees (15)
+-- ---------------------------------------------------------------------------
+insert into public.employees (id, name, email, job_role_id, designation_id, phone, start_date)
+select ('e0000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+       v.name, v.email,
+       (select id from public.job_roles where name = v.role),
+       (select id from public.designations where name = v.designation),
+       '+974 5000 ' || lpad(n::text, 4, '0'),
+       v.start_date::date
+  from (values
+    (1, 'Aarav Sharma', 'aarav@example.com', 'Full-Stack Developer', 'Senior', '2025-01-06'),
+    (2, 'Priya Verma', 'priya@example.com', 'Backend', 'Lead', '2024-07-01'),
+    (3, 'Rohan Gupta', 'rohan@example.com', 'Frontend', 'Mid-Level', '2025-03-10'),
+    (4, 'Simran Kaur', 'simran@example.com', 'Quality Analyst', 'Senior', '2024-11-04'),
+    (5, 'Vikram Singh', 'vikram@example.com', 'DevOps', 'Lead', '2024-05-20'),
+    (6, 'Ananya Iyer', 'ananya@example.com', 'Mobile App Developer', 'Mid-Level', '2025-02-03'),
+    (7, 'Karan Mehta', 'karan@example.com', 'Graphics', 'Junior', '2025-06-16'),
+    (8, 'Neha Joshi', 'neha@example.com', 'Backend', 'Mid-Level', '2025-04-01'),
+    (9, 'Arjun Nair', 'arjun@example.com', 'Full-Stack Developer', 'Junior', '2025-08-04'),
+    (10, 'Ishita Rao', 'ishita@example.com', 'Frontend', 'Senior', '2024-09-09'),
+    (11, 'Dev Malhotra', 'dev@example.com', 'Mobile App Developer', 'Senior', '2024-12-02'),
+    (12, 'Meera Pillai', 'meera@example.com', 'Quality Analyst', 'Trainee', '2026-01-05'),
+    (13, 'Kabir Khan', 'kabir@example.com', 'Backend', 'Architect', '2024-03-11'),
+    (14, 'Tara Bose', 'tara@example.com', 'Frontend', 'Intern', '2026-06-01'),
+    (15, 'Yash Agarwal', 'yash@example.com', 'DevOps', 'Mid-Level', '2025-05-12')
+  ) as v(n, name, email, role, designation, start_date);
+
+-- One employee went off-role and came back; one is currently off-role.
+select public.set_employment_status('e0000000-0000-4000-8000-000000000009', 'off_role', '2026-03-31', 'Sabbatical');
+select public.set_employment_status('e0000000-0000-4000-8000-000000000009', 'on_role', '2026-06-01', 'Returned');
+select public.set_employment_status('e0000000-0000-4000-8000-000000000015', 'off_role', '2026-09-30', 'Resigned');
+
+-- ---------------------------------------------------------------------------
+-- Projects (4): different weekends / currencies / statuses
+-- ---------------------------------------------------------------------------
+insert into public.projects (id, name, client_name, billing_cycle_start_date, billing_cycle_end_date, currency,
+                             invoice_to, invoice_title, weekend_days, payment_terms_days)
+values
+  ('b0000000-0000-4000-8000-000000000001', 'QL Marketplace', 'Qatar Living', '2026-08-08', '2026-09-07', 'USD',
+   E'Qatar Living\nAl Mirqab Tower, West Bay\nDoha, Qatar', 'Development Work – {MONTH} {YEAR}', '{5,6}', 15),
+  ('b0000000-0000-4000-8000-000000000002', 'SL Mobile Apps', 'Saudi Living', '2026-09-01', '2026-09-30', 'SAR',
+   E'Saudi Living\nOlaya Street\nRiyadh, Saudi Arabia', 'Mobile Development – {PERIOD_START} to {PERIOD_END}', '{5,6}', 30),
+  ('b0000000-0000-4000-8000-000000000003', 'EU Analytics', 'Nordic Data AB', '2026-07-15', '2026-08-14', 'EUR',
+   E'Nordic Data AB\nKungsgatan 1\nStockholm, Sweden', 'Analytics Services – {MONTH} {YEAR}', '{0,6}', 15),
+  ('b0000000-0000-4000-8000-000000000004', 'Website Revamp', 'Doha Retail Co.', '2026-11-01', '2026-11-30', 'QAR',
+   E'Doha Retail Co.\nLusail Marina\nLusail, Qatar', 'Website Revamp – {MONTH} {YEAR}', '{5,6}', 15);
+
+select public.change_project_status('b0000000-0000-4000-8000-000000000001', 'active', '2026-08-08', 'Kick-off');
+select public.change_project_status('b0000000-0000-4000-8000-000000000002', 'active', '2026-09-01', 'Kick-off');
+select public.change_project_status('b0000000-0000-4000-8000-000000000002', 'paused', '2026-10-12', 'Client budget review');
+select public.change_project_status('b0000000-0000-4000-8000-000000000002', 'active', '2026-10-19', 'Resumed');
+select public.change_project_status('b0000000-0000-4000-8000-000000000003', 'active', '2026-07-15', null);
+select public.change_project_status('b0000000-0000-4000-8000-000000000003', 'ended', '2026-10-14', 'Contract complete');
+-- Project 4 stays not_started.
+
+select count(*) from public.assign_employees('b0000000-0000-4000-8000-000000000001', '[
+  {"employee_id":"e0000000-0000-4000-8000-000000000001","start_date":"2026-08-08","monthly_cost":"3000","role_on_project":"Full-Stack Developer"},
+  {"employee_id":"e0000000-0000-4000-8000-000000000002","start_date":"2026-08-08","monthly_cost":"3500"},
+  {"employee_id":"e0000000-0000-4000-8000-000000000003","start_date":"2026-08-08","monthly_cost":"2400"},
+  {"employee_id":"e0000000-0000-4000-8000-000000000004","start_date":"2026-08-08","monthly_cost":"2100"},
+  {"employee_id":"e0000000-0000-4000-8000-000000000009","start_date":"2026-10-22","monthly_cost":"1800"}
+]'::jsonb);
+select count(*) from public.assign_employees('b0000000-0000-4000-8000-000000000002', '[
+  {"employee_id":"e0000000-0000-4000-8000-000000000006","start_date":"2026-09-01","monthly_cost":"11000"},
+  {"employee_id":"e0000000-0000-4000-8000-000000000011","start_date":"2026-09-01","monthly_cost":"14000"},
+  {"employee_id":"e0000000-0000-4000-8000-000000000012","start_date":"2026-09-01","monthly_cost":"6000"}
+]'::jsonb);
+select count(*) from public.assign_employees('b0000000-0000-4000-8000-000000000003', '[
+  {"employee_id":"e0000000-0000-4000-8000-000000000013","start_date":"2026-07-15","end_date":"2026-10-14","monthly_cost":"4200"},
+  {"employee_id":"e0000000-0000-4000-8000-000000000015","start_date":"2026-07-15","end_date":"2026-09-30","monthly_cost":"2800"}
+]'::jsonb);
+-- Rate change mid-cycle for Priya.
+insert into public.assignment_rates (assignment_id, monthly_cost, effective_from)
+select id, 3800, '2026-10-20' from public.project_assignments
+ where employee_id = 'e0000000-0000-4000-8000-000000000002' and project_id = 'b0000000-0000-4000-8000-000000000001';
+
+-- ---------------------------------------------------------------------------
+-- Holidays (3)
+-- ---------------------------------------------------------------------------
+select count(*) from public.save_holidays('{"name":"Qatar National Sports Day","start_date":"2026-02-10","applies_to_all_projects":true}');
+select count(*) from public.save_holidays('{"name":"Diwali","start_date":"2026-11-08","applies_to_all_projects":true}');
+select count(*) from public.save_holidays('{"name":"Saudi National Day","start_date":"2026-09-23","applies_to_all_projects":false,"project_ids":["b0000000-0000-4000-8000-000000000002"]}');
+
+-- ---------------------------------------------------------------------------
+-- Attendance: two months, deterministic pseudo-random leave (~8 %)
+-- ---------------------------------------------------------------------------
+select public.upsert_attendance_bulk(coalesce(jsonb_agg(jsonb_build_object(
+         'employee_id', e.id, 'date', d::date,
+         'status_code', case
+           when abs(hashtext(e.id::text || d::text)) % 100 < 3 then 'full_day'
+           when abs(hashtext(e.id::text || d::text)) % 100 < 5 then 'half_day'
+           when abs(hashtext(e.id::text || d::text)) % 100 < 8 then 'short_leave'
+           when abs(hashtext(e.id::text || d::text)) % 100 < 20 then 'wfh'
+           else 'present' end)), '[]'::jsonb))
+  from public.employees e
+  cross join generate_series('2026-08-27'::date, '2026-10-26'::date, interval '1 day') d
+ where extract(dow from d) not in (5, 6)
+   and exists (select 1 from public.employment_periods p
+                where p.employee_id = e.id and p.start_date <= d and (p.end_date is null or p.end_date >= d));
+
+-- ---------------------------------------------------------------------------
+-- Invoices (3): issued, paid, void. Real invoices are generated in the app; these use
+-- custom lines so totals are fixed regardless of attendance above.
+-- ---------------------------------------------------------------------------
+select public.save_invoice('{
+  "project_id":"b0000000-0000-4000-8000-000000000003","period_start":"2026-07-15","period_end":"2026-08-14",
+  "issue_date":"2026-08-15","due_date":"2026-08-30","currency":"EUR","client_name":"Nordic Data AB",
+  "invoice_to":"Nordic Data AB\nKungsgatan 1\nStockholm, Sweden","invoice_title":"Analytics Services – July 2026",
+  "lines":[{"line_type":"custom","description":"Analytics services – Kabir Khan","quantity":"1","unit_price":"4200","amount":"4200.00"},
+           {"line_type":"custom","description":"Analytics services – Yash Agarwal","quantity":"1","unit_price":"2800","amount":"2800.00"}]}');
+select public.save_invoice('{
+  "project_id":"b0000000-0000-4000-8000-000000000003","period_start":"2026-08-15","period_end":"2026-09-14",
+  "issue_date":"2026-09-15","due_date":"2026-09-30","currency":"EUR","client_name":"Nordic Data AB",
+  "invoice_to":"Nordic Data AB\nKungsgatan 1\nStockholm, Sweden","invoice_title":"Analytics Services – August 2026",
+  "lines":[{"line_type":"custom","description":"Analytics services – August","quantity":"1","unit_price":"7000","amount":"7000.00"}]}');
+select public.save_invoice('{
+  "project_id":"b0000000-0000-4000-8000-000000000001","period_start":"2026-08-08","period_end":"2026-09-07",
+  "issue_date":"2026-09-08","due_date":"2026-09-23","currency":"USD","client_name":"Qatar Living",
+  "invoice_to":"Qatar Living\nAl Mirqab Tower, West Bay\nDoha, Qatar","invoice_title":"Development Work – August 2026",
+  "lines":[{"line_type":"custom","description":"Development work – August cycle","quantity":"1","unit_price":"11000","amount":"11000.00"}]}');
+
+select public.invoice_action((select id from public.invoices where invoice_title = 'Analytics Services – July 2026'),
+                             'mark_paid', '{"paid_at":"2026-08-28","reference":"SEPA-77812"}');
+select public.invoice_action((select id from public.invoices where invoice_title = 'Development Work – August 2026'),
+                             'void', '{"reason":"Superseded by corrected invoice"}');
+
+select set_config('request.jwt.claims', '', false);
+select set_config('request.jwt.claim.sub', '', false);

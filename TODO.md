@@ -2,37 +2,66 @@
 
 > **Purpose:** single place to resume work if context is lost. Read this first, then `SPEC.md` (requirements)
 > and `docs/ARCHITECTURE.md` (code conventions).
-> **Last updated:** 27 Oct 2026 — app live on Vercel (login verified); repo relink to `Attendance` pending
+> **Last updated:** 27 Oct 2026, end of day — app live on Vercel (login + PDF preview verified). Start at §0.1.
 
 Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `[ ]` not started
 
 ---
 
-## 0. Resume here (current state in one minute)
+## 0. Resume here (state at end of 27 Oct 2026)
 
-- **All 13 build phases of `SPEC.md` §14 are implemented.** Lint + typecheck clean, **438 unit/component tests
-  pass** (coverage 92.6 % lines / 85.3 % branches, billing 100 %), `pnpm build` succeeds, app runs locally.
-- **Invoice PDF follows the organisation format** (reference `~/Downloads/INVOICE S2535.pdf`) and can be previewed
-  in an in-app popup with Download. Settings (company, contact, bank, logo, signature) are filled in the cloud DB.
-- **Database:** Supabase **Cloud** project `ifslmdsqykywsavdvium` (URL/keys in `.env.local`, never commit it).
+### 0.1 Tomorrow — start here (in this order)
+1. **Ask the user for 2 open decisions** (raised 27 Oct, not answered yet):
+   - **PDF page 2:** with 7+ invoice lines the bank-details + signature block moves to page 2 (reference invoice
+     has 6 lines, fits one page). Offer: tighten spacing in `OrgInvoiceTemplate.tsx` so 7–8 lines fit on one page.
+   - **Role names on invoice lines:** lines print the job role ("Frontend", "Backend", "DevOps"); reference uses
+     "Frontend Developer", "Backend Developer", "DevOps Engineer". Options: rename job roles (Admin ▸ Roles),
+     set *Role on project* per assignment, or edit line text in the wizard.
+2. **Check whether the user gave the Vercel GitHub App access to `tannuthakur/Attendance`**
+   (github.com/settings/installations → Vercel → Configure → Repository access). If yes → relink the Vercel
+   project to `Attendance` (decision **B**) with the API call in §3 item 12 (user already approved), then push
+   → auto-deploy. If not → keep deploying with the CLI command below.
+3. **User actions still pending** (remind them): Supabase Auth ▸ URL Configuration (Site URL
+   `https://attendancepayroll.vercel.app`, redirect `https://attendancepayroll.vercel.app/auth/callback`), Reset
+   Password + Invite email templates, sign-ups off, SMTP; change admin password; delete the Vercel token when done.
+4. Then continue with §3 (first real invoice S2536 end-to-end, viewer walkthrough, invoice actions, test suites).
+
+### 0.2 Where everything stands
+- **Code:** all 13 build phases of `SPEC.md` §14 done + 4 rounds of invoice-format change requests (§3a) + Vercel
+  fixes. Lint/typecheck clean, **438 unit/component tests pass** (92.6 % lines / 85.3 % branches, billing 100 %).
+- **Repo (main):** https://github.com/tannuthakur/Attendance — branch `main`, **PUBLIC repo** → never commit secrets,
+  bank details, the logo/signature images or `.env.local` (history scanned 27 Oct: clean). Commit + push after
+  every change. `tannuthakur/attendance_payroll` is an OLD private copy — don't use it.
+- **Live app:** https://attendancepayroll.vercel.app (Vercel project `attendance_payroll`, team `tannu17`,
+  team id `team_bZreo23qVKrfMQG46jxgCLeW`, project id `prj_iJWoINKFYYiBUQg3mvTbt8C0jswm`, runtime Node 24).
+  - Login, all 10 main pages and the **PDF preview popup + download** verified on production 27 Oct.
+  - Current production = CLI deploy of commit `a8af61a`+ (PDF font fix). Vercel's Git link still points to the old
+    `attendance_payroll` repo → **pushes to GitHub do NOT deploy**. Deploy with:
+    `set -a; . ./.env.local; set +a; npx -y vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" --scope tannu17`
+    (local dir linked via `.vercel/`; `.vercelignore` keeps `.env*`, node_modules, .next out of the upload).
+  - Vercel env vars (Production + Preview) verified 27 Oct: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+    (46 chars, was missing the leading `s`), `SUPABASE_SERVICE_ROLE_KEY` (sensitive), `NEXT_PUBLIC_SITE_URL` =
+    https://attendancepayroll.vercel.app, `ENABLE_EXPERIMENTAL_COREPACK=1`.
+  - **Permissions:** Vercel API writes (env vars, project link, deploys) need the user's explicit OK — Claude Code's
+    permission check blocks them otherwise. User approved on 27 Oct: env fixes, relink to Attendance, deploy latest.
+  - Vercel token `VERCEL_TOKEN` is in `.env.local` (was pasted in chat → user should delete it when done; the CLI
+    also added `VERCEL_OIDC_TOKEN` there).
+- **Database:** Supabase Cloud project `ifslmdsqykywsavdvium` (URL/keys in `.env.local`).
   - All 8 migrations applied (`01_schema.sql` + `04_invoice_format.sql`). **No pending migration.**
-  - Admin: `admin@yopmail.com` (password = `SEED_ADMIN_PASSWORD` in `.env.local`). Only user so far.
-  - Real data entered by the user: 12 employees, 2 projects (Saudi Living, Qatar Living), 12 assignments,
-    311 attendance rows, 3 holidays, 1 invoice (soft-deleted). Demo data **not** loaded.
-  - Invoice numbering: format `{PREFIX}{SEQ}`, prefix `S`, sequence `all` = 2535 → **next invoice S2536**.
-- **Live (Vercel):** https://attendancepayroll.vercel.app — project `attendance_payroll`, team `tannu17`.
-  Login + all main pages verified 27 Oct 2026. ⚠ Vercel still deploys from the OLD copy repo
-  `tannuthakur/attendance_payroll`; user chose **B = deploy from `tannuthakur/Attendance`** → needs the Vercel GitHub
-  App to get access to `Attendance` (user action), then relink via Vercel API (see §3 item 12).
-  Vercel API token is in `.env.local` as `VERCEL_TOKEN` (temporary; IDs: team `team_bZreo23qVKrfMQG46jxgCLeW`,
-  project `prj_iJWoINKFYYiBUQg3mvTbt8C0jswm`). Changing Vercel settings/secrets needs the user's explicit OK.
-- **Next up:** (1) user grants Vercel GitHub App access to `Attendance` → relink + deploy; (2) Supabase Auth URL
-  config for the Vercel domain; (3) change admin password; (4) generate the first real invoice (S2536). See §3.
-- **Repo:** https://github.com/tannuthakur/Attendance — branch `main` (commit + push after each change; this is
-  the main repo — `attendance_payroll` is an old copy).
-- **Machine:** macOS, Node **20.20.2**, pnpm 12.14.0, **no Docker, no Supabase CLI, no Homebrew**.
-  Node 20 needs `NODE_OPTIONS=--experimental-websocket` for supabase-js (already in package.json scripts).
-  Playwright Chromium is installed (used for browser smoke checks).
+  - Admin `admin@yopmail.com` (password = `SEED_ADMIN_PASSWORD` in `.env.local`, digits only → should be changed).
+    Only user so far (no viewer yet).
+  - Real data: 12 employees, 2 projects (Saudi Living PRJ-0002 `54dc9c01-…`, Qatar Living PRJ-0003 `225b07c7-…`),
+    12 assignments, 311 attendance rows, 3 holidays, 1 invoice (soft-deleted). Demo data NOT loaded.
+  - Settings filled from the reference invoice (Sunfocus company, contact Mr. Vikas Thakur, address, email, phone,
+    ICICI bank details, footer "Thanks for your Business"). Logo + signature were extracted from
+    `~/Downloads/INVOICE S2535.pdf` and live in the Supabase `branding` bucket (not in git).
+  - Invoice numbering `{PREFIX}{SEQ}`, prefix `S`, sequence `all` = 2535 → **next invoice S2536** (not yet generated).
+- **Local:** app runs with `pnpm build && pnpm start` → http://localhost:3000 (uses the same cloud DB).
+- **Machine:** macOS, Node **20.20.2**, pnpm 12.14.0, no Docker / Supabase CLI / Homebrew. Node 20 needs
+  `NODE_OPTIONS=--experimental-websocket` (already in package.json scripts). Playwright Chromium installed —
+  used for browser smoke checks against local and production.
+- **Reference files:** `SPEC.md` (requirements), `docs/ARCHITECTURE.md` (conventions), `supabase/cloud-setup/README.md`
+  (Supabase setup), `README.md` (setup/deploy), reference invoice `~/Downloads/INVOICE S2535.pdf`.
 
 ### Commands to get going again
 
@@ -167,6 +196,12 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
               (github.com/settings/installations → Vercel → Configure → Repository access → add Attendance)
         - [ ] Then relink the Vercel project from `tannuthakur/attendance_payroll` (old copy, missing the last
               fixes) to `tannuthakur/Attendance` (decision B) and deploy `main` — Claude can do this via API
+              (approved by user 27 Oct). API call (returns 400 "install the GitHub integration first" until the
+              GitHub App has access):
+              `POST https://api.vercel.com/v9/projects/prj_iJWoINKFYYiBUQg3mvTbt8C0jswm/link?teamId=team_bZreo23qVKrfMQG46jxgCLeW`
+              body `{"type":"github","repo":"tannuthakur/Attendance","productionBranch":"main"}`
+              — helper idea: `fetch` with `Authorization: Bearer $VERCEL_TOKEN` (token from `.env.local`, never print it).
+              After relinking, push to `main` and confirm a Vercel status appears on the commit in GitHub.
         - [x] **PDF preview fixed on Vercel** — failed with `Cannot find module …/pdfkit/js/standard-fonts/Helvetica.cjs`
               (pdfkit loads fonts via package "imports" the file tracer can't follow). Fix: `outputFileTracingIncludes`
               in `next.config.ts` for `/invoices/**`. Deployed with the Vercel CLI (`vercel deploy --prod`, local dir

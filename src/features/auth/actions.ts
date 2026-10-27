@@ -25,7 +25,13 @@ export async function signIn(input: LoginInput): Promise<ActionResult<{ redirect
   });
   if (error) {
     if (error.status === 429) return fail('RATE_LIMITED', 'Too many attempts. Please wait a moment and try again.');
-    return fail('INVALID_CREDENTIALS', INVALID);
+    // Wrong email/password (or unconfirmed email) → the neutral message, never revealing which.
+    if (error.status === 400 || error.code === 'invalid_credentials' || error.code === 'email_not_confirmed') {
+      return fail('INVALID_CREDENTIALS', INVALID);
+    }
+    // Anything else (bad Supabase URL/key, network, outage) is a server problem: log it for the host's logs.
+    console.error('[auth] signInWithPassword failed', { status: error.status, code: error.code, message: error.message });
+    return fail('AUTH_UNAVAILABLE', 'Sign-in is temporarily unavailable. Please try again later or contact the administrator.');
   }
   const { data: profile } = await supabase.from('profiles').select('is_active').eq('id', data.user.id).maybeSingle();
   if (!profile?.is_active) {

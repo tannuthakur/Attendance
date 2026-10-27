@@ -22,6 +22,7 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
   - Invoice numbering: format `{PREFIX}{SEQ}`, prefix `S`, sequence `all` = 2535 → **next invoice S2536**.
 - **Next up:** generate the first real invoice (S2536) and check it; Supabase Auth email settings; then the
   never-run test suites. See §3.
+- **Repo:** https://github.com/tannuthakur/Attendance — branch `main` (commit after each change request).
 - **Machine:** macOS, Node **20.20.2**, pnpm 12.14.0, **no Docker, no Supabase CLI, no Homebrew**.
   Node 20 needs `NODE_OPTIONS=--experimental-websocket` for supabase-js (already in package.json scripts).
   Playwright Chromium is installed (used for browser smoke checks).
@@ -143,7 +144,8 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
 9. [ ] **Upgrade to Node 22** (recommended); the `--experimental-websocket` flag can stay (harmless) or be removed.
 10. [ ] **Open questions** (SPEC §16) — confirm with business: Short Leave factor (0.25), working vs calendar days,
         tax/VAT (none). (Number format and invoice layout are now settled.)
-11. [ ] **Git**: repo initialised, **no commits yet**. Make an initial commit (`.env.local` is git-ignored — verified).
+11. [x] **Git**: code committed and pushed to https://github.com/tannuthakur/Attendance (`main`), on top of the
+        repo's "Initial commit". `.env.local`, `.claude/`, build output ignored; staged content scanned for keys.
 12. [ ] **Deploy**: Vercel + Supabase Cloud per `README.md` › Deploying (env vars, SMTP, production Site URL +
         redirect URL).
 

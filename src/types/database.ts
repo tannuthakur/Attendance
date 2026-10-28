@@ -280,8 +280,8 @@ export type Database = {
           code: string
           name: string
           client_name: string
-          billing_cycle_start_date: string
-          billing_cycle_end_date: string
+          billing_cycle_start_date: string | null
+          billing_cycle_end_date: string | null
           currency: string
           invoice_to: string
           invoice_title: string
@@ -298,8 +298,8 @@ export type Database = {
           code?: string
           name: string
           client_name: string
-          billing_cycle_start_date: string
-          billing_cycle_end_date: string
+          billing_cycle_start_date?: string | null
+          billing_cycle_end_date?: string | null
           currency?: string
           invoice_to: string
           invoice_title: string
@@ -316,8 +316,8 @@ export type Database = {
           code?: string
           name?: string
           client_name?: string
-          billing_cycle_start_date?: string
-          billing_cycle_end_date?: string
+          billing_cycle_start_date?: string | null
+          billing_cycle_end_date?: string | null
           currency?: string
           invoice_to?: string
           invoice_title?: string
@@ -531,6 +531,7 @@ export type Database = {
           pdf_path: string | null
           is_outdated: boolean
           outdated_checked_at: string | null
+          kind: 'cycle' | 'task'
           paid_at: string | null
           paid_reference: string | null
           voided_at: string | null
@@ -562,6 +563,7 @@ export type Database = {
           pdf_path?: string | null
           is_outdated?: boolean
           outdated_checked_at?: string | null
+          kind?: 'cycle' | 'task'
           paid_at?: string | null
           paid_reference?: string | null
           voided_at?: string | null
@@ -593,6 +595,7 @@ export type Database = {
           pdf_path?: string | null
           is_outdated?: boolean
           outdated_checked_at?: string | null
+          kind?: 'cycle' | 'task'
           paid_at?: string | null
           paid_reference?: string | null
           voided_at?: string | null
@@ -623,6 +626,7 @@ export type Database = {
           unit_price: number
           amount: number
           calc_breakdown: Json | null
+          task_id: string | null
         }
         Insert: {
           id?: string
@@ -642,6 +646,7 @@ export type Database = {
           unit_price?: number
           amount: number
           calc_breakdown?: Json | null
+          task_id?: string | null
         }
         Update: {
           id?: string
@@ -661,6 +666,55 @@ export type Database = {
           unit_price?: number
           amount?: number
           calc_breakdown?: Json | null
+          task_id?: string | null
+        }
+        Relationships: []
+      }
+      project_tasks: {
+        Row: {
+          id: string
+          project_id: string
+          name: string
+          description: string | null
+          amount: number
+          start_date: string | null
+          end_date: string | null
+          status: 'open' | 'completed'
+          invoice_id: string | null
+          sort_order: number
+          created_by: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          name: string
+          description?: string | null
+          amount: number
+          start_date?: string | null
+          end_date?: string | null
+          status?: 'open' | 'completed'
+          invoice_id?: string | null
+          sort_order?: number
+          created_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          name?: string
+          description?: string | null
+          amount?: number
+          start_date?: string | null
+          end_date?: string | null
+          status?: 'open' | 'completed'
+          invoice_id?: string | null
+          sort_order?: number
+          created_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -818,8 +872,8 @@ export type Database = {
           code: string
           name: string
           client_name: string
-          billing_cycle_start_date: string
-          billing_cycle_end_date: string
+          billing_cycle_start_date: string | null
+          billing_cycle_end_date: string | null
           currency: string
           invoice_to: string
           invoice_title: string
@@ -830,9 +884,9 @@ export type Database = {
           created_by: string | null
           created_at: string | null
           updated_at: string | null
-          billing_anchor_day: number
-          current_cycle_start: string
-          current_cycle_end: string
+          billing_anchor_day: number | null
+          current_cycle_start: string | null
+          current_cycle_end: string | null
           employee_count: number
           employee_ids: string[]
           monthly_value: number
@@ -867,6 +921,7 @@ export type Database = {
           pdf_path: string | null
           is_outdated: boolean
           outdated_checked_at: string | null
+          kind: 'cycle' | 'task'
           paid_at: string | null
           paid_reference: string | null
           voided_at: string | null
@@ -878,6 +933,26 @@ export type Database = {
           project_code: string
           project_name: string
           is_overdue: boolean
+        }
+        Relationships: []
+      }
+      project_task_list: {
+        Row: {
+          id: string
+          project_id: string
+          name: string
+          description: string | null
+          amount: number
+          start_date: string | null
+          end_date: string | null
+          status: 'open' | 'completed'
+          invoice_id: string | null
+          sort_order: number
+          created_by: string | null
+          created_at: string | null
+          updated_at: string | null
+          invoice_number: string | null
+          invoice_status: Database["public"]["Enums"]["invoice_status"] | null
         }
         Relationships: []
       }

@@ -30,8 +30,8 @@ export type ProjectFormProject = {
   code: string;
   name: string;
   client_name: string;
-  billing_cycle_start_date: string;
-  billing_cycle_end_date: string;
+  billing_cycle_start_date: string | null;
+  billing_cycle_end_date: string | null;
   currency: string;
   invoice_to: string;
   invoice_title: string;
@@ -70,6 +70,7 @@ export function ProjectForm({ project }: { project?: ProjectFormProject }) {
     defaultValues: {
       name: project?.name ?? '',
       client_name: project?.client_name ?? '',
+      has_billing_cycle: project ? project.billing_cycle_start_date !== null : true,
       billing_cycle_start_date: project?.billing_cycle_start_date ?? '',
       billing_cycle_end_date: project?.billing_cycle_end_date ?? '',
       currency: project?.currency ?? DEFAULT_CURRENCY,
@@ -81,11 +82,14 @@ export function ProjectForm({ project }: { project?: ProjectFormProject }) {
     },
   });
 
-  const [title, start, end] = useWatch({
+  const [title, rawStart, rawEnd, hasCycle] = useWatch({
     control: form.control,
-    name: ['invoice_title', 'billing_cycle_start_date', 'billing_cycle_end_date'],
+    name: ['invoice_title', 'billing_cycle_start_date', 'billing_cycle_end_date', 'has_billing_cycle'],
   });
-  const preview = title && autoCycleEnd(start) ? resolveInvoiceTitle(title, { start, end: autoCycleEnd(start)! }) : null;
+  const start = rawStart ?? '';
+  const end = rawEnd ?? '';
+  const preview =
+    title && hasCycle !== false && autoCycleEnd(start) ? resolveInvoiceTitle(title, { start, end: autoCycleEnd(start)! }) : null;
 
   const insertToken = (token: string) => {
     const current = form.getValues('invoice_title') ?? '';
@@ -186,6 +190,29 @@ export function ProjectForm({ project }: { project?: ProjectFormProject }) {
           />
           <FormField
             control={form.control}
+            name="has_billing_cycle"
+            render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <div className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value !== false}
+                      onCheckedChange={(v) => field.onChange(v === true)}
+                      aria-label="Monthly billing cycle"
+                    />
+                  </FormControl>
+                  <FormLabel className="font-normal">Monthly billing cycle</FormLabel>
+                </div>
+                <FormDescription>
+                  Untick for projects invoiced per task only. Task invoices are available for every project.
+                </FormDescription>
+              </FormItem>
+            )}
+          />
+          {hasCycle !== false && (
+            <>
+          <FormField
+            control={form.control}
             name="billing_cycle_start_date"
             render={({ field }) => (
               <FormItem>
@@ -232,6 +259,8 @@ export function ProjectForm({ project }: { project?: ProjectFormProject }) {
               </FormItem>
             )}
           />
+            </>
+          )}
           <FormField
             control={form.control}
             name="payment_terms_days"

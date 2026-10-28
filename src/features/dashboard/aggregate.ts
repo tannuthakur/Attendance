@@ -16,7 +16,7 @@ export type ProjectRow = {
   client_name: string;
   status: 'not_started' | 'active' | 'paused' | 'ended' | 'cancelled';
   currency: string;
-  billing_cycle_start_date: string;
+  billing_cycle_start_date: string | null;
 };
 export type AttendanceTodayRow = {
   employee_id: string;
@@ -44,6 +44,8 @@ export type InvoiceRow = {
   total: number | string;
   paid_at: string | null;
   is_outdated: boolean;
+  /** 'task' invoices never count as a billing cycle's invoice. Missing = 'cycle'. */
+  kind?: 'cycle' | 'task';
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -278,14 +280,14 @@ export const READY_WINDOW_DAYS = 7;
 // cycle" = same project and period overlapping the cycle, matching the wizard's duplicate check.
 export function readyToInvoice(
   projects: ProjectRow[],
-  invoices: Pick<InvoiceRow, 'project_id' | 'status' | 'period_start' | 'period_end'>[],
+  invoices: Pick<InvoiceRow, 'project_id' | 'status' | 'period_start' | 'period_end' | 'kind'>[],
   today: string,
   windowDays = READY_WINDOW_DAYS,
 ): ReadyToInvoiceRow[] {
   const limit = addDays(today, windowDays);
   const byProject = new Map<string, typeof invoices>();
   for (const inv of invoices) {
-    if (inv.status === 'void') continue;
+    if (inv.status === 'void' || inv.kind === 'task') continue;
     const list = byProject.get(inv.project_id) ?? [];
     list.push(inv);
     byProject.set(inv.project_id, list);
@@ -293,7 +295,8 @@ export function readyToInvoice(
   const out: ReadyToInvoiceRow[] = [];
   for (const project of projects) {
     if (project.status !== 'active') continue;
-    if (today < project.billing_cycle_start_date) continue;
+    // Projects billed per task only (no cycle) are never "ready to invoice".
+    if (!project.billing_cycle_start_date || today < project.billing_cycle_start_date) continue;
     const cycle = getCycle({ billingCycleStartDate: project.billing_cycle_start_date }, today);
     if (cycle.end < today || cycle.end > limit) continue;
     const invoiced = (byProject.get(project.id) ?? []).some(

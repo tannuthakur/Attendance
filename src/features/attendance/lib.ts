@@ -314,7 +314,7 @@ export function hrefWith(
  */
 export function attendanceDatePresets(
   today: string,
-  projects: Array<{ name: string; billing_cycle_start_date: string }>,
+  projects: Array<{ name: string; billing_cycle_start_date: string | null }>,
 ): Array<{ label: string; from: string; to: string }> {
   const weekStart = addDays(today, -dayOfWeek(today));
   const { start, end } = monthRange(monthOf(today));
@@ -322,9 +322,11 @@ export function attendanceDatePresets(
     { label: 'Today', from: today, to: today },
     { label: 'This week', from: weekStart, to: addDays(weekStart, 6) },
     { label: 'This month', from: start, to: end },
-    ...projects.map((p) => {
+    // Projects billed per task only have no cycle preset.
+    ...projects.flatMap((p) => {
+      if (!p.billing_cycle_start_date) return [];
       const c = getCycle({ billingCycleStartDate: p.billing_cycle_start_date }, today);
-      return { label: `Cycle: ${p.name}`, from: c.start, to: c.end };
+      return [{ label: `Cycle: ${p.name}`, from: c.start, to: c.end }];
     }),
   ];
 }

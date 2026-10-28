@@ -9,6 +9,7 @@ import { getProjectOptions, getToday } from '@/features/lookups/queries';
 import type { Tables, Views } from '@/types/database';
 import { INVOICE_SORT_COLUMNS, type InvoiceListConfig } from './list-config';
 import { pickDefaultCycle, type InvoicePeriodRef } from './lines';
+import { listProjectTasks } from '@/features/tasks/queries';
 import { refreshAllIssuedOutdatedFlags, refreshOutdatedFlags } from './outdated';
 
 export type InvoiceListRow = Views<'invoice_list'>;
@@ -196,16 +197,32 @@ export type WizardProject = Pick<
   | 'status'
 >;
 
+export type WizardTask = {
+  id: string;
+  name: string;
+  description: string | null;
+  amount: number;
+  start_date: string | null;
+  end_date: string | null;
+  status: 'open' | 'completed';
+};
+
 export type WizardData = {
   today: string;
   projects: WizardProject[];
   project: WizardProject | null;
+  /** Empty for projects without a monthly billing cycle (task-only billing). */
   cycles: Cycle[];
+  /** Billing-cycle invoices of the project (task invoices are excluded from cycle logic). */
   invoices: InvoicePeriodRef[];
   defaultCycle: Cycle | null;
+  /** Tasks of the project that are not on an active invoice. */
+  tasks: WizardTask[];
+  /** Requested invoice type (?type=task|cycle); the wizard falls back to what the project supports. */
+  requestedType: 'cycle' | 'task' | null;
 };
 
-export async function getWizardData(projectId?: string, cycleStart?: string): Promise<WizardData> {
+export async function getWizardData(projectId?: string, cycleStart?: string, type?: string): Promise<WizardData> {
   const supabase = await createClient();
   const today = await getToday();
   const { data } = await supabase
@@ -216,13 +233,35 @@ export async function getWizardData(projectId?: string, cycleStart?: string): Pr
     .order('name');
   const projects = data ?? [];
   const project = projects.find((p) => p.id === projectId) ?? null;
-  if (!project) return { today, projects, project: null, cycles: [], invoices: [], defaultCycle: null };
+  const requestedType = type === 'task' || type === 'cycle' ? type : null;
+  if (!project) {
+    return { today, projects, project: null, cycles: [], invoices: [], defaultCycle: null, tasks: [], requestedType };
+  }
 
-  const cycleProject = { billingCycleStartDate: project.billing_cycle_start_date };
-  const cycles = listCycles(cycleProject, project.billing_cycle_start_date, today < project.billing_cycle_start_date ? project.billing_cycle_start_date : today);
-  const invoices = await projectInvoiceRefs(project.id);
+  const firstStart = project.billing_cycle_start_date;
+  const cycles = firstStart
+    ? listCycles({ billingCycleStartDate: firstStart }, firstStart, today < firstStart ? firstStart : today)
+    : [];
+  const [invoices, tasks] = await Promise.all([projectInvoiceRefs(project.id), listProjectTasks(project.id, { uninvoicedOnly: true })]);
   const requested = cycleStart ? cycles.find((c) => c.start === cycleStart) : undefined;
-  return { today, projects, project, cycles, invoices, defaultCycle: requested ?? pickDefaultCycle(cycles, invoices, today) };
+  return {
+    today,
+    projects,
+    project,
+    cycles,
+    invoices,
+    defaultCycle: requested ?? pickDefaultCycle(cycles, invoices, today),
+    tasks: tasks.map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      amount: t.amount,
+      start_date: t.start_date,
+      end_date: t.end_date,
+      status: t.status,
+    })),
+    requestedType,
+  };
 }
 
 async function projectInvoiceRefs(projectId: string): Promise<InvoicePeriodRef[]> {
@@ -231,6 +270,7 @@ async function projectInvoiceRefs(projectId: string): Promise<InvoicePeriodRef[]
     .from('invoices')
     .select('id, invoice_number, period_start, period_end, status')
     .eq('project_id', projectId)
+    .eq('kind', 'cycle')
     .is('deleted_at', null)
     .order('period_start');
   return data ?? [];
@@ -248,12 +288,9 @@ export async function getProjectCycles(projectId: string) {
     .select('id, billing_cycle_start_date, currency')
     .eq('id', projectId)
     .maybeSingle();
-  if (!project) return { cycles: [], invoices: [], today };
-  const cycles = listCycles(
-    { billingCycleStartDate: project.billing_cycle_start_date },
-    project.billing_cycle_start_date,
-    today < project.billing_cycle_start_date ? project.billing_cycle_start_date : today,
-  );
+  if (!project?.billing_cycle_start_date) return { cycles: [], invoices: [], today };
+  const firstStart = project.billing_cycle_start_date;
+  const cycles = listCycles({ billingCycleStartDate: firstStart }, firstStart, today < firstStart ? firstStart : today);
   return { cycles: [...cycles].reverse(), invoices: await projectInvoiceRefs(projectId), today };
 }
 

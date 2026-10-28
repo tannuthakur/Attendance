@@ -41,6 +41,8 @@ export type InvoiceActionsInvoice = {
   status: 'draft' | 'issued' | 'paid' | 'void';
   version: number;
   currency: string;
+  /** Task invoices are not calculated from attendance, so they can't be regenerated. */
+  kind?: 'cycle' | 'task';
 };
 
 /** Which §6.6 actions are allowed for a status (pure; mirrored by the DB guards). */
@@ -114,7 +116,7 @@ export function InvoiceActions({ invoice, today }: { invoice: InvoiceActionsInvo
               <Pencil aria-hidden /> Edit details
             </Button>
           )}
-          <RegenerateDialog invoice={invoice} disabled={!allowed.regenerate} />
+          {invoice.kind !== 'task' && <RegenerateDialog invoice={invoice} disabled={!allowed.regenerate} />}
           {allowed.markPaid && <MarkPaidDialog invoice={invoice} today={today} />}
           {allowed.markUnpaid && (
             <ReasonDialog

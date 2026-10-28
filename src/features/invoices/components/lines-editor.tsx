@@ -37,6 +37,8 @@ type Props = {
   /** wizard: employee lines can be excluded; edit: employee lines are fixed (description only). */
   mode?: 'wizard' | 'edit';
   warnings?: BillingWarning[];
+  /** Message when there are no lines (e.g. task invoices). */
+  emptyText?: string;
 };
 
 export function warningText(w: BillingWarning): string {
@@ -52,7 +54,7 @@ export function warningText(w: BillingWarning): string {
   }
 }
 
-export function LinesEditor({ lines, onChange, currency, mode = 'wizard', warnings = [] }: Props) {
+export function LinesEditor({ lines, onChange, currency, mode = 'wizard', warnings = [], emptyText }: Props) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -110,7 +112,7 @@ export function LinesEditor({ lines, onChange, currency, mode = 'wizard', warnin
                 {lines.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={mode === 'wizard' ? 10 : 9} className="h-24 text-center text-muted-foreground">
-                      No employee lines for this period. Add custom lines below.
+                      {emptyText ?? 'No employee lines for this period. Add custom lines below.'}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -263,6 +265,16 @@ function SortableLine({ line, index, count, currency, mode, onUpdate, onMove, on
                 {excluded && <span className="font-medium">Excluded</span>}
               </div>
             </div>
+          ) : line.kind === 'task' ? (
+            <div className="space-y-1">
+              <Input
+                value={line.description}
+                onChange={(e) => onUpdate({ description: e.target.value })}
+                aria-label={`Description line ${n}`}
+                className="h-8"
+              />
+              <div className="text-xs text-muted-foreground">Task: {line.taskName}</div>
+            </div>
           ) : (
             <Input
               value={line.description}
@@ -276,6 +288,8 @@ function SortableLine({ line, index, count, currency, mode, onUpdate, onMove, on
         <TableCell>
           {line.kind === 'employee' ? (
             line.calc.roleLabel
+          ) : line.kind === 'task' ? (
+            <span className="text-muted-foreground">Task</span>
           ) : (
             <Input
               value={line.quantity}
@@ -289,6 +303,8 @@ function SortableLine({ line, index, count, currency, mode, onUpdate, onMove, on
         <TableCell className="text-right whitespace-nowrap">
           {line.kind === 'employee' ? (
             formatMoney(line.calc.monthlyCost, currency)
+          ) : line.kind === 'task' ? (
+            formatMoney(line.amount, currency)
           ) : (
             <Input
               value={line.unitPrice}
@@ -306,7 +322,9 @@ function SortableLine({ line, index, count, currency, mode, onUpdate, onMove, on
         <TableCell className={cn('text-right font-medium whitespace-nowrap tabular-nums', excluded && 'line-through')} data-testid={`amount-${n}`}>
           {line.kind === 'employee'
             ? formatMoney(line.calc.amount, currency)
-            : (() => {
+            : line.kind === 'task'
+              ? formatMoney(line.amount, currency)
+              : (() => {
                 const a = customAmountOrNull(line);
                 return a === null ? '—' : formatMoney(a, currency);
               })()}
@@ -327,7 +345,7 @@ function SortableLine({ line, index, count, currency, mode, onUpdate, onMove, on
             >
               <ArrowDown className="size-3.5" aria-hidden />
             </Button>
-            {line.kind === 'custom' && (
+            {line.kind !== 'employee' && (
               <Button type="button" variant="ghost" size="icon" className="size-7 text-destructive" onClick={onRemove} aria-label={`Remove line ${n}`}>
                 <Trash2 className="size-3.5" aria-hidden />
               </Button>

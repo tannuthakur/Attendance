@@ -21,8 +21,8 @@ function toRow(v: ProjectValues) {
   return {
     name: v.name,
     client_name: v.client_name,
-    billing_cycle_start_date: v.billing_cycle_start_date,
-    billing_cycle_end_date: v.billing_cycle_end_date,
+    billing_cycle_start_date: v.has_billing_cycle ? v.billing_cycle_start_date : null,
+    billing_cycle_end_date: v.has_billing_cycle ? v.billing_cycle_end_date : null,
     currency: v.currency,
     invoice_to: v.invoice_to,
     invoice_title: v.invoice_title,

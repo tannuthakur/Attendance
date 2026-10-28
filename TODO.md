@@ -11,7 +11,10 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
 
 ## 0. Resume here (state at end of 27 Oct 2026)
 
-### 0.1 Tomorrow — start here (in this order)
+### 0.1 Start here (in this order)
+0. **Change request 6 (task invoices / optional cycle): built & tested, committed locally, NOT pushed** — waiting for
+   the user to run `supabase/cloud-setup/05_task_invoices.sql` on Supabase; then `git push` (auto-deploys) and
+   live-check (see §3b last item).
 1. **Open decision for the user:**
    - ~~PDF page 2~~ — **answered & done 28 Oct** (Round 5: automatic density, single page up to ~15 lines).
    - **Role names on invoice lines:** lines print the job role ("Frontend", "Backend", "DevOps"); reference uses
@@ -121,6 +124,7 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
 - [x] 0006 activity log triggers, indexes, RLS on every table, storage buckets/policies
 - [x] 0007 list views (`employee_list`, `project_list`, `invoice_list`, `attendance_list`, `holiday_list`, …)
 - [x] 0008 invoice format: `app_settings.company_contact_name`, `app_settings.signature_path`
+- [x] 0009 task invoices: optional cycle, `project_tasks`, `invoices.kind`, `invoice_lines.task_id` (cloud: run `05_task_invoices.sql`)
 - [x] `supabase/seed.sql` demo data (verified on PGlite)
 - [x] `supabase/cloud-setup/` paste-ready SQL (`01_schema`, `02_make_admin`, `03_demo_data_optional`,
       `04_invoice_format`) + README; `pnpm db:bundle` regenerates 01/03
@@ -276,6 +280,62 @@ Done from the earlier list: ~~Company data in Settings~~ (filled from the refere
   "Currency: USDs" — not changed (S2535 layout kept); ask the user if the due-date position should change.
 
 ---
+
+## 3b. Change request 6 — invoices per task, billing cycle optional (user, 28 Oct 2026) — DONE, awaiting DB upgrade + deploy
+
+> "Invoices can also be generated against a particular task — it is not compulsory that each project has a
+> billing cycle. It can be there or not."
+
+Impact (files that assume every project has a cycle): `projects` schema/form/list/export/detail (cycles tab),
+`project_list` view (`current_cycle_*`), `src/lib/billing/cycles.ts` callers, invoice wizard + queries
+(cycle selection, overlap check, regenerate/outdated), dashboard "Ready to invoice", attendance date presets
+("current billing cycle of project X"), PDF header "PARTICULARS (period)".
+
+Design decisions (answered by user 28 Oct):
+- [x] **Task = both**: tracked tasks on the project (name, amount, optional dates, status; picked when invoicing,
+      marked invoiced so they can't be billed twice; void/delete frees them) **and** free-text task lines typed
+      on the invoice (existing custom lines).
+- [x] **Mixing allowed**: billing cycle optional per project; any project can have task invoices; projects with a
+      cycle can still get monthly employee/attendance invoices.
+- [x] **PDF header for task invoices**: "PARTICULARS | TOTAL (USD)" without dates; lines "1. <task>  $amount".
+
+Implementation choices (SPEC-NOTE in code):
+- `invoices.kind` = 'cycle' | 'task'. Task invoices keep `period_start/end` NOT NULL = span of the selected tasks'
+  dates, or the issue date when tasks have no dates (keeps lists/filters/overlap logic simple). No source hash →
+  never "Outdated"; no Regenerate.
+- `project_tasks` table (RLS like other business tables); `invoice_lines.task_id` links billed tasks; a trigger
+  frees tasks when their invoice is voided or deleted; `save_invoice` rejects tasks already on another invoice.
+- Project billing cycle: both dates or neither (check constraint).
+
+Plan / status:
+- [x] DB migration `20261028000009_task_invoices.sql`: cycle dates nullable (both-or-neither check),
+      `project_tasks` (+RLS, activity log), `invoices.kind`, `invoice_lines.task_id`, `save_invoice` links/unlinks
+      tasks and rejects TASK_ALREADY_INVOICED / TASK_NOT_IN_PROJECT, trigger frees tasks on void/delete, views
+      (`project_list` null cycle, `invoice_list` recreated with `kind`, new `project_task_list`). Verified on PGlite
+      (scenario incl. viewer RLS + upgrade of a populated DB) and 8 new pgTAP assertions (all 105 pass).
+      Cloud SQL: `supabase/cloud-setup/05_task_invoices.sql` (run once, BEFORE deploying).
+- [x] Project form/schema: "Monthly billing cycle" switch (default on); dates hidden + stored null when off;
+      list shows "No cycle (tasks)"; detail shows "No monthly cycle — invoiced per task"; cycles tab hidden
+- [x] Project "Tasks" tab (`src/features/tasks/`): add/edit/delete (delete only when never invoiced), status
+      open/completed, invoice number + status link, "Invoice open tasks" → `/invoices/new?projectId=…&type=task`
+- [x] Invoice wizard: "Invoice type" Billing cycle / Tasks (forced to Tasks without a cycle); task step = tick
+      tasks (completed pre-selected) + free-text lines; amounts of task lines always re-read on the server;
+      period = tasks' date span or issue date; no overlap warning for task invoices
+- [x] Invoice detail: "Type" field; Regenerate hidden (and refused server-side) for task invoices; edit form keeps
+      task lines (amount locked, removable → task freed)
+- [x] PDF: "PARTICULARS | TOTAL (USD)" without dates for task invoices (`invoice.showPeriod`)
+- [x] Dashboard "Ready to invoice" skips task-only projects and ignores task invoices; attendance presets skip them
+- [x] Tests: 23 new (unit + component), 469 passing; lint/typecheck/build green
+- [ ] **USER: run `supabase/cloud-setup/05_task_invoices.sql` in the Supabase SQL Editor** → then push (auto-deploy)
+      and live check (create a task-only project, add tasks, generate + preview a task invoice). Code is committed
+      locally but NOT pushed, because production would break without the new columns.
+
+## 3c. CI end-to-end tests (first run 28 Oct, commit `a1a458f`)
+- [x] CI pipeline green through lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration
+- [ ] E2E: 18 passed, 6 failed, 1 did not run. Failures look like test-script selector issues, e.g.
+      `09-forgot-password` "getByLabel('Email')" also matches the "Send invite email" radio (use exact/role);
+      `10-lists-attendance-holidays` "Sort by Employee name" button name differs. Others to read:
+      `00-auth` generic error, `01-admin-full-flow`, `08-viewer-read-only`, `10` holidays list.
 
 ## 4. Decisions made (search code for `SPEC-NOTE:`)
 

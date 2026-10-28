@@ -26,6 +26,7 @@ import {
   peekNextInvoiceNumber,
   storeInvoicePdf,
   storedLinePayload,
+  taskLinePayload,
   type SaveLinePayload,
 } from './service';
 
@@ -81,12 +82,69 @@ export const computeInvoiceLines = adminAction(computeLinesSchema, async (input,
 
 type GenerateInput = z.infer<typeof generateInvoiceSchema>;
 
+const TASKS_CHANGED = () =>
+  new ActionFailure('TASKS_CHANGED', 'Some tasks were changed or invoiced elsewhere. Go back to “Review lines” to refresh them.');
+
+/**
+ * Task invoice (change request 6): tracked task lines (amounts from the DB) + free-text custom lines.
+ * SPEC-NOTE: the period is the span of the selected tasks' dates, or the issue date when they have none.
+ */
+async function buildTaskPayload(
+  supabase: ServerClient,
+  input: GenerateInput,
+  project: { client_name: string; currency: string },
+) {
+  if (input.lines.some((l) => l.kind === 'employee')) throw TASKS_CHANGED();
+  const taskIds = input.lines.flatMap((l) => (l.kind === 'task' ? [l.taskId] : []));
+  if (new Set(taskIds).size !== taskIds.length) throw TASKS_CHANGED();
+  const tasks = taskIds.length
+    ? (check(
+        await supabase
+          .from('project_tasks')
+          .select('id, amount, start_date, end_date, invoice_id')
+          .eq('project_id', input.projectId)
+          .in('id', taskIds),
+      ) ?? [])
+    : [];
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const lines: SaveLinePayload[] = input.lines.map((l, i) => {
+    if (l.kind === 'custom') return customLinePayload(l, i + 1);
+    if (l.kind !== 'task') throw TASKS_CHANGED();
+    const t = byId.get(l.taskId);
+    if (!t || t.invoice_id) throw TASKS_CHANGED();
+    return taskLinePayload(t, l.description, i + 1);
+  });
+  assertValid(lines);
+  const dates = tasks.flatMap((t) => [t.start_date, t.end_date]).filter((d): d is string => !!d).sort();
+  return {
+    project,
+    sourceHash: null,
+    payload: {
+      kind: 'task',
+      project_id: input.projectId,
+      period_start: dates[0] ?? input.issueDate,
+      period_end: dates.at(-1) ?? input.issueDate,
+      issue_date: input.issueDate,
+      due_date: input.dueDate,
+      currency: project.currency,
+      client_name: project.client_name,
+      invoice_to: input.invoiceTo,
+      invoice_title: input.invoiceTitle,
+      notes: input.notes,
+      excluded_assignment_ids: [],
+      event: 'generated',
+      lines,
+    },
+  };
+}
+
 /** Server-side rebuild of the wizard payload: employee lines recomputed, custom lines re-priced. */
 async function buildGeneratePayload(supabase: ServerClient, input: GenerateInput) {
   const project = check(
     await supabase.from('projects').select('id, client_name, currency').eq('id', input.projectId).maybeSingle(),
   );
   if (!project) throw new ActionFailure('PROJECT_NOT_FOUND', 'Project not found');
+  if (input.invoiceType === 'task') return buildTaskPayload(supabase, input, project);
 
   const period = { start: input.periodStart, end: input.periodEnd };
   const computed = await computeEmployeeLines(supabase, input.projectId, period);
@@ -96,6 +154,7 @@ async function buildGeneratePayload(supabase: ServerClient, input: GenerateInput
   const used = new Set<string>();
   const lines: SaveLinePayload[] = input.lines.map((l, i) => {
     if (l.kind === 'custom') return customLinePayload(l, i + 1);
+    if (l.kind === 'task') throw new ActionFailure('INVALID_LINE', 'Tasks can only be billed on a task invoice');
     const r = fresh.get(l.assignmentId);
     if (!r || excluded.has(l.assignmentId) || used.has(l.assignmentId)) throw LINES_CHANGED();
     used.add(l.assignmentId);
@@ -109,6 +168,7 @@ async function buildGeneratePayload(supabase: ServerClient, input: GenerateInput
     project,
     sourceHash: computed.loaded.hash,
     payload: {
+      kind: 'cycle',
       project_id: input.projectId,
       period_start: input.periodStart,
       period_end: input.periodEnd,
@@ -138,6 +198,7 @@ export const previewInvoicePdf = adminAction(generateInvoiceSchema, async (input
     {
       // SPEC-NOTE: preview shows the number Generate will most likely assign (not reserved yet).
       invoice_number: await peekNextInvoiceNumber(supabase, payload.issue_date, settings),
+      kind: payload.kind as 'cycle' | 'task',
       issue_date: payload.issue_date,
       due_date: payload.due_date,
       status: 'issued',
@@ -177,12 +238,14 @@ export const previewInvoicePdf = adminAction(generateInvoiceSchema, async (input
 export const generateInvoice = adminAction(
   generateInvoiceSchema,
   async (input, { supabase }) => {
-    if (!input.allowOverlap) {
+    // Period overlap only matters between billing-cycle invoices; task invoices bill distinct tasks.
+    if (!input.allowOverlap && input.invoiceType !== 'task') {
       const existing = check(
         await supabase
           .from('invoices')
           .select('id, invoice_number, period_start, period_end, status')
           .eq('project_id', input.projectId)
+          .eq('kind', 'cycle')
           .is('deleted_at', null)
           .neq('status', 'void'),
       ) ?? [];
@@ -218,9 +281,16 @@ export const updateInvoiceDetails = adminAction(
     assertIssued(inv);
     const stored = await loadLines(supabase, inv.id);
     const employeeLines = new Map(stored.filter((l) => l.line_type === 'employee').map((l) => [l.id, l]));
+    // Task lines keep their stored amount; they may be removed (the task becomes available again).
+    const taskLines = new Map(stored.filter((l) => l.task_id).map((l) => [l.id, l]));
     const used = new Set<string>();
     const lines = input.lines.map((l, i) => {
       if (l.kind === 'custom') return customLinePayload(l, i + 1);
+      if (l.kind === 'task') {
+        const row = taskLines.get(l.lineId);
+        if (!row) throw new ActionFailure('LINES_CHANGED', 'The invoice changed. Reload and try again.');
+        return storedLinePayload(row, i + 1, l.description);
+      }
       const row = employeeLines.get(l.lineId);
       if (!row || used.has(l.lineId)) throw new ActionFailure('LINES_CHANGED', 'The invoice changed. Reload and try again.');
       used.add(l.lineId);
@@ -247,7 +317,14 @@ export const updateInvoiceDetails = adminAction(
   { revalidate: (_i, r) => paths(r) },
 );
 
+function assertCycleInvoice(inv: InvoiceRow) {
+  if (inv.kind === 'task') {
+    throw new ActionFailure('NOT_REGENERABLE', 'Task invoices are not calculated from attendance and cannot be regenerated');
+  }
+}
+
 async function regenerationPlan(supabase: ServerClient, inv: InvoiceRow) {
+  assertCycleInvoice(inv);
   const stored = await loadLines(supabase, inv.id);
   const computed = await computeEmployeeLines(supabase, inv.project_id, { start: inv.period_start, end: inv.period_end });
   const merged = mergeRegeneratedLines(stored, computed.lines, inv.excluded_assignment_ids);

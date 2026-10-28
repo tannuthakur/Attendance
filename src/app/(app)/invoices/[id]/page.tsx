@@ -99,6 +99,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
               status: invoice.status,
               version: invoice.version,
               currency: invoice.currency,
+              kind: invoice.kind,
             }}
           />
         }
@@ -112,7 +113,8 @@ export default async function InvoiceDetailPage({ params }: Props) {
             </CardHeader>
             <CardContent>
               <dl className="grid gap-4 sm:grid-cols-3">
-                <Field label="Period">
+                <Field label="Type">{invoice.kind === 'task' ? 'Task invoice' : 'Billing cycle'}</Field>
+                <Field label={invoice.kind === 'task' ? 'Task dates' : 'Period'}>
                   {formatDate(invoice.period_start)} – {formatDate(invoice.period_end)}
                 </Field>
                 <Field label="Issue date">{formatDate(invoice.issue_date)}</Field>

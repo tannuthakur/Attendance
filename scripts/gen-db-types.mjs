@@ -42,8 +42,8 @@ const tables = {
     ...id, employee_id: c(S), start_date: c(S), end_date: c(S, true), reason: c(S, true), end_reason: c(S, true), ...audit,
   },
   projects: {
-    ...id, code: c(S, false, true), name: c(S), client_name: c(S), billing_cycle_start_date: c(S),
-    billing_cycle_end_date: c(S), currency: c(S, false, true), invoice_to: c(S), invoice_title: c(S),
+    ...id, code: c(S, false, true), name: c(S), client_name: c(S), billing_cycle_start_date: c(S, true),
+    billing_cycle_end_date: c(S, true), currency: c(S, false, true), invoice_to: c(S), invoice_title: c(S),
     weekend_days: c('number[]', false, true), payment_terms_days: c(N, false, true),
     status: c(E('project_status'), false, true), notes: c(S, true), ...audit,
   },
@@ -69,7 +69,7 @@ const tables = {
     due_date: c(S), currency: c(S), status: c(E('invoice_status'), false, true), client_name: c(S), invoice_to: c(S),
     invoice_title: c(S), notes: c(S, true), subtotal: c(N, false, true), total: c(N, false, true), version: c(N, false, true),
     source_hash: c(S, true), excluded_assignment_ids: c('string[]', false, true), pdf_path: c(S, true),
-    is_outdated: c(B, false, true), outdated_checked_at: c(S, true),
+    is_outdated: c(B, false, true), outdated_checked_at: c(S, true), kind: c(`'cycle' | 'task'`, false, true),
     paid_at: c(S, true), paid_reference: c(S, true), voided_at: c(S, true), void_reason: c(S, true), deleted_at: c(S, true),
     ...audit,
   },
@@ -78,6 +78,12 @@ const tables = {
     employee_id: c(S, true), assignment_id: c(S, true), role_label: c(S, true), monthly_cost: c(N, true),
     working_days: c(N, true), billable_days: c(N, true), leave_days: c(N, true), paid_days: c(N, true),
     quantity: c(N, false, true), unit_price: c(N, false, true), amount: c(N), calc_breakdown: c(J, true),
+    task_id: c(S, true),
+  },
+  project_tasks: {
+    ...id, project_id: c(S), name: c(S), description: c(S, true), amount: c(N), start_date: c(S, true),
+    end_date: c(S, true), status: c(`'open' | 'completed'`, false, true), invoice_id: c(S, true),
+    sort_order: c(N, false, true), ...audit,
   },
   invoice_number_sequences: { scope: c(S), last_value: c(N, false, true) },
   invoice_events: {
@@ -104,12 +110,13 @@ const views = {
     has_active_assignment: c(B),
   },
   project_list: {
-    ...rowOf('projects'), billing_anchor_day: c(N), current_cycle_start: c(S), current_cycle_end: c(S),
+    ...rowOf('projects'), billing_anchor_day: c(N, true), current_cycle_start: c(S, true), current_cycle_end: c(S, true),
     employee_count: c(N), employee_ids: c('string[]'), monthly_value: c(N), last_invoice_id: c(S, true),
     last_invoice_number: c(S, true), last_invoice_date: c(S, true), last_invoice_status: c(E('invoice_status'), true),
     has_unpaid_invoice: c(B),
   },
   invoice_list: { ...rowOf('invoices'), project_code: c(S), project_name: c(S), is_overdue: c(B) },
+  project_task_list: { ...rowOf('project_tasks'), invoice_number: c(S, true), invoice_status: c(E('invoice_status'), true) },
   attendance_list: {
     ...rowOf('attendance'), employee_code: c(S), employee_name: c(S), job_role_id: c(S), job_role_name: c(S),
     designation_id: c(S, true), status_label: c(S), is_leave: c(B), deduction_factor: c(N), status_color: c(S),

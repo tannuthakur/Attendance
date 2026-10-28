@@ -36,6 +36,8 @@ export type InvoicePdfData = {
     periodStart: string;
     periodEnd: string;
     period: { start: PdfDateParts; end: PdfDateParts };
+    /** false for task invoices: the table header reads just "PARTICULARS" (no dates). */
+    showPeriod: boolean;
     currency: string;
     notes?: string;
     version: number;

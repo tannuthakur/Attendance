@@ -21,11 +21,13 @@ import {
   findOverlappingInvoices,
   replaceEmployeeLines,
   summarizeLines,
+  taskWizardLine,
   toDraftPayload,
   type InvoicePeriodRef,
   type WizardLine,
 } from '../lines';
 import type { WizardData } from '../queries';
+import type { InvoiceType } from '../schemas';
 import { LinesEditor } from './lines-editor';
 
 type Step = 1 | 2 | 3;
@@ -50,7 +52,13 @@ function pdfBlobUrl(base64: string): string {
 
 export function InvoiceWizard({ data }: { data: WizardData }) {
   const router = useRouter();
-  const { project, cycles, invoices, defaultCycle, today, projects } = data;
+  const { project, cycles, invoices, defaultCycle, today, projects, tasks } = data;
+  const hasCycle = cycles.length > 0 || !!project?.billing_cycle_start_date;
+  // SPEC-NOTE (change request 6): projects without a monthly cycle can only be invoiced per task.
+  const [invoiceType, setInvoiceType] = useState<InvoiceType>(
+    !hasCycle ? 'task' : (data.requestedType ?? 'cycle'),
+  );
+  const isTask = invoiceType === 'task';
 
   const [step, setStep] = useState<Step>(1);
   const [cycleStart, setCycleStart] = useState(defaultCycle?.start ?? '');
@@ -87,7 +95,13 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
   const summary = summarizeLines(lines);
   const currency = project?.currency ?? '';
   const periodValid = !!period.start && !!period.end && period.end >= period.start;
-  const canContinue1 = !!project && periodValid && (overlaps.length === 0 || overlapConfirmed);
+  const canContinue1 = !!project && (isTask || (periodValid && (overlaps.length === 0 || overlapConfirmed)));
+  const selectedTaskIds = new Set(lines.flatMap((l) => (l.kind === 'task' ? [l.taskId] : [])));
+
+  const toggleTask = (task: (typeof tasks)[number], on: boolean) =>
+    setLines((prev) =>
+      on ? [...prev, taskWizardLine(task)] : prev.filter((l) => !(l.kind === 'task' && l.taskId === task.id)),
+    );
 
   const selectCycle = (start: string) => {
     setCycleStart(start);
@@ -100,6 +114,18 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
     startCompute(async () => {
       if (!project) return;
       setError(undefined);
+      if (isTask) {
+        // Task invoice: start with completed tasks selected (once); free-text lines can be added too.
+        if (computedFor !== 'task') {
+          setLines(tasks.filter((t) => t.status === 'completed').map(taskWizardLine));
+          setWarnings([]);
+          setTitle(resolveInvoiceTitle(project.invoice_title, { start: issueDate, end: issueDate }));
+          setComputedFor('task');
+        }
+        setStep(2);
+        return;
+      }
+      if (computedFor === 'task') setLines([]);
       const key = `${period.start}|${period.end}`;
       const res = await computeInvoiceLines({ projectId: project.id, periodStart: period.start, periodEnd: period.end });
       if (!res.ok) {
@@ -118,8 +144,10 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
     const { lines: draftLines, excludedAssignmentIds } = toDraftPayload(lines);
     return {
       projectId: project!.id,
-      periodStart: period.start,
-      periodEnd: period.end,
+      invoiceType,
+      // Task invoices: the server derives the period from the tasks (or the issue date).
+      periodStart: isTask ? issueDate : period.start,
+      periodEnd: isTask ? issueDate : period.end,
       issueDate,
       dueDate,
       invoiceTitle: title,
@@ -211,6 +239,45 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
             </div>
 
             {project && (
+              <fieldset className="grid gap-2">
+                <legend className="mb-1 text-sm font-medium">Invoice type</legend>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="invoice-type"
+                      value="cycle"
+                      checked={invoiceType === 'cycle'}
+                      disabled={!hasCycle}
+                      onChange={() => setInvoiceType('cycle')}
+                    />
+                    Billing cycle (employees &amp; attendance)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="invoice-type"
+                      value="task"
+                      checked={invoiceType === 'task'}
+                      onChange={() => setInvoiceType('task')}
+                    />
+                    Tasks
+                  </label>
+                </div>
+                {!hasCycle && (
+                  <p className="text-xs text-muted-foreground">This project has no monthly billing cycle — it is invoiced per task.</p>
+                )}
+                {isTask && (
+                  <p className="text-sm text-muted-foreground">
+                    {tasks.length
+                      ? `${tasks.length} task(s) not yet invoiced. Pick them on the next step and/or add free-text lines.`
+                      : 'No open tasks — add free-text lines on the next step, or add tasks on the project’s Tasks tab.'}
+                  </p>
+                )}
+              </fieldset>
+            )}
+
+            {project && !isTask && (
               <>
                 <div className="grid gap-2 sm:max-w-md">
                   <Label htmlFor="wizard-cycle">Billing cycle</Label>
@@ -312,11 +379,43 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
           <CardHeader>
             <CardTitle>Review lines</CardTitle>
             <CardDescription>
-              {project.code} · {project.name} · {formatDate(period.start)} – {formatDate(period.end)} · {currency}
+              {project.code} · {project.name} ·{' '}
+              {isTask ? 'Task invoice' : `${formatDate(period.start)} – ${formatDate(period.end)}`} · {currency}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <LinesEditor lines={lines} onChange={setLines} currency={currency} warnings={warnings} />
+            {isTask && (
+              <fieldset className="space-y-2 rounded-md border p-3">
+                <legend className="px-1 text-sm font-medium">Tasks to bill</legend>
+                {tasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No open tasks for this project.</p>
+                ) : (
+                  <ul className="grid gap-2 sm:grid-cols-2">
+                    {tasks.map((t) => (
+                      <li key={t.id} className="flex items-start gap-2 text-sm">
+                        <Checkbox
+                          id={`task-${t.id}`}
+                          checked={selectedTaskIds.has(t.id)}
+                          onCheckedChange={(v) => toggleTask(t, v === true)}
+                        />
+                        <Label htmlFor={`task-${t.id}`} className="font-normal leading-snug">
+                          <span className="font-medium">{t.name}</span> · {formatMoney(t.amount, currency)}
+                          {t.status === 'completed' ? ' · completed' : ''}
+                          {t.start_date || t.end_date ? ` · ${formatDate(t.start_date)} – ${formatDate(t.end_date)}` : ''}
+                        </Label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </fieldset>
+            )}
+            <LinesEditor
+              lines={lines}
+              onChange={setLines}
+              currency={currency}
+              warnings={warnings}
+              emptyText={isTask ? 'No lines yet. Tick tasks above or add free-text lines below.' : undefined}
+            />
             <div className="flex justify-between">
               <Button type="button" variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft aria-hidden /> Back

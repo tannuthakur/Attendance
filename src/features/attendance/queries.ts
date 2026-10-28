@@ -33,7 +33,7 @@ export type ProjectRef = {
   code: string;
   name: string;
   weekend_days: number[];
-  billing_cycle_start_date: string;
+  billing_cycle_start_date: string | null;
   status: string;
 };
 

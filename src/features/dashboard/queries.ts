@@ -88,7 +88,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         supabase
           .from('invoice_list')
           .select(
-            'id, invoice_number, project_id, project_code, project_name, client_name, period_start, period_end, issue_date, due_date, currency, status, total, paid_at, is_outdated',
+            'id, invoice_number, project_id, project_code, project_name, client_name, period_start, period_end, issue_date, due_date, currency, status, total, paid_at, is_outdated, kind',
             { count: 'exact' },
           )
           .neq('status', 'void')

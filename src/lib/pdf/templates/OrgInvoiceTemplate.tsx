@@ -181,8 +181,14 @@ export function OrgInvoiceTemplate({ data }: { data: InvoicePdfData }) {
         <View style={s.table}>
           <View style={s.trHead} fixed>
             <Text style={[s.cDesc, cell, s.bold]}>
-              PARTICULARS (<DateWithSup d={invoice.period.start} withYear={!sameYear} /> TO{' '}
-              <DateWithSup d={invoice.period.end} withYear />)
+              PARTICULARS
+              {invoice.showPeriod && (
+                <>
+                  {' ('}
+                  <DateWithSup d={invoice.period.start} withYear={!sameYear} /> TO{' '}
+                  <DateWithSup d={invoice.period.end} withYear />)
+                </>
+              )}
             </Text>
             <Text style={[s.cAmt, cell, s.bold]}>TOTAL ({invoice.currency})</Text>
           </View>

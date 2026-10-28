@@ -46,7 +46,10 @@ const columns: ColumnDef<ProjectListRow, unknown>[] = [
     id: 'current_cycle',
     accessorKey: 'current_cycle_start',
     meta: { label: 'Current cycle', className: 'whitespace-nowrap' },
-    cell: ({ row }) => `${formatDate(row.original.current_cycle_start)} – ${formatDate(row.original.current_cycle_end)}`,
+    cell: ({ row }) =>
+      row.original.current_cycle_start
+        ? `${formatDate(row.original.current_cycle_start)} – ${formatDate(row.original.current_cycle_end)}`
+        : 'No cycle (tasks)',
   },
   { id: 'currency', accessorKey: 'currency', meta: { label: 'Currency' } },
   {

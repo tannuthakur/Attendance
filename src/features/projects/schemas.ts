@@ -18,8 +18,11 @@ export const DEFAULT_PAYMENT_TERMS_DAYS = 15;
 const projectFields = {
   name: z.string().trim().min(1, 'Name is required').max(200, 'Name must be at most 200 characters'),
   client_name: z.string().trim().min(1, 'Client name is required').max(200, 'Client name must be at most 200 characters'),
-  billing_cycle_start_date: requiredDate('Billing cycle start date'),
-  billing_cycle_end_date: requiredDate('Billing cycle end date'),
+  // SPEC-NOTE (change request 6): the monthly billing cycle is optional — projects may be invoiced per task only.
+  // When `has_billing_cycle` is false both dates are stored as null.
+  has_billing_cycle: z.boolean().default(true),
+  billing_cycle_start_date: z.string().trim().default(''),
+  billing_cycle_end_date: z.string().trim().default(''),
   currency: z
     .string({ error: 'Currency is required' })
     .refine((c) => /^[A-Z]{3}$/.test(c) && isCurrencyCode(c), 'Select a valid ISO 4217 currency'),
@@ -43,7 +46,10 @@ const projectFields = {
   notes: optionalText(2000, 'Notes'),
 };
 
-type CycleDates = { billing_cycle_start_date: string; billing_cycle_end_date: string };
+type CycleDates = { has_billing_cycle: boolean; billing_cycle_start_date: string; billing_cycle_end_date: string };
+
+const cycleStartSchema = requiredDate('Billing cycle start date');
+const cycleEndSchema = requiredDate('Billing cycle end date');
 
 // SPEC-NOTE: the end date is auto-filled from the start date (anchor-day rule in src/lib/billing/cycles.ts)
 // and must equal it, so the first cycle and the monthly pattern can never disagree.
@@ -57,7 +63,19 @@ function cycleEndMatches(v: CycleDates): boolean {
 }
 
 function addCycleIssue(v: CycleDates, ctx: z.RefinementCtx) {
-  if (cycleEndMatches(v)) return;
+  if (!v.has_billing_cycle) return;
+  let datesValid = true;
+  for (const [key, schema] of [
+    ['billing_cycle_start_date', cycleStartSchema],
+    ['billing_cycle_end_date', cycleEndSchema],
+  ] as const) {
+    const res = schema.safeParse(v[key]);
+    if (!res.success) {
+      datesValid = false;
+      ctx.addIssue({ code: 'custom', path: [key], message: res.error.issues[0]?.message ?? 'Invalid date' });
+    }
+  }
+  if (!datesValid || cycleEndMatches(v)) return;
   ctx.addIssue({
     code: 'custom',
     path: ['billing_cycle_end_date'],

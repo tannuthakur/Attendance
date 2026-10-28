@@ -1,7 +1,7 @@
 import 'server-only';
 import { formatInvoiceNumber, invoiceNumberScope } from '@/lib/invoice-number';
 import type { ServerClient } from '@/lib/supabase/server';
-import { customLineAmount, type EmployeeLineResult } from '@/lib/billing';
+import { customLineAmount, money, type EmployeeLineResult } from '@/lib/billing';
 import type { Json, Tables } from '@/types/database';
 import { buildInvoicePdfData } from '@/lib/pdf/build-data';
 import { renderInvoicePdf } from '@/lib/pdf/render';
@@ -49,6 +49,8 @@ export type SaveLinePayload = {
   unit_price: string;
   amount: string;
   calc_breakdown?: Json | null;
+  /** Tracked project task billed by this line (custom line_type). */
+  task_id?: string | null;
 };
 
 export function employeeLinePayload(r: EmployeeLineResult, description: string, sortOrder: number): SaveLinePayload {
@@ -83,6 +85,24 @@ export function customLinePayload(l: CustomLineInput, sortOrder: number): SaveLi
   };
 }
 
+/** A tracked task as an invoice line: quantity 1 × the task amount from the database. */
+export function taskLinePayload(
+  task: { id: string; amount: number | string },
+  description: string,
+  sortOrder: number,
+): SaveLinePayload {
+  const amount = money(task.amount);
+  return {
+    line_type: 'custom',
+    sort_order: sortOrder,
+    description,
+    quantity: '1',
+    unit_price: amount,
+    amount,
+    task_id: task.id,
+  };
+}
+
 /** Copies a stored line as-is (edit details keeps employee amounts untouched). */
 export function storedLinePayload(l: Tables<'invoice_lines'>, sortOrder: number, description = l.description): SaveLinePayload {
   return {
@@ -101,6 +121,7 @@ export function storedLinePayload(l: Tables<'invoice_lines'>, sortOrder: number,
     unit_price: String(l.unit_price),
     amount: String(l.amount),
     calc_breakdown: l.calc_breakdown,
+    task_id: l.task_id,
   };
 }
 

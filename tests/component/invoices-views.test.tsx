@@ -56,6 +56,7 @@ const row = (over: Partial<InvoiceListRow>): InvoiceListRow => ({
   pdf_path: null,
   is_outdated: true,
   outdated_checked_at: null,
+  kind: 'cycle',
   paid_at: null,
   paid_reference: null,
   voided_at: null,
@@ -249,8 +250,8 @@ describe('InvoiceLinesTable', () => {
         total={2700}
         employees={{ e1: { code: 'EMP-0001', name: 'Alice A' } }}
         lines={[
-          { ...base, id: 'l1', sort_order: 1, line_type: 'employee', description: 'Dev', employee_id: 'e1', role_label: 'Backend', monthly_cost: 3000, working_days: 21, leave_days: 1.75, paid_days: 19.25, unit_price: 2750, amount: 2750 },
-          { ...base, id: 'l2', sort_order: 2, line_type: 'custom', description: 'Discount', employee_id: null, role_label: null, monthly_cost: null, working_days: null, leave_days: null, paid_days: null, unit_price: -50, amount: -50 },
+          { ...base, task_id: null, id: 'l1', sort_order: 1, line_type: 'employee', description: 'Dev', employee_id: 'e1', role_label: 'Backend', monthly_cost: 3000, working_days: 21, leave_days: 1.75, paid_days: 19.25, unit_price: 2750, amount: 2750 },
+          { ...base, task_id: null, id: 'l2', sort_order: 2, line_type: 'custom', description: 'Discount', employee_id: null, role_label: null, monthly_cost: null, working_days: null, leave_days: null, paid_days: null, unit_price: -50, amount: -50 },
         ]}
       />,
     );

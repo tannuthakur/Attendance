@@ -36,9 +36,10 @@ describe('ProjectForm', () => {
     const checked = screen
       .getAllByRole('checkbox')
       .filter((c) => c.getAttribute('aria-checked') === 'true' || c.getAttribute('data-state') === 'checked')
-      .map((c) => c.id);
-    expect(checked.sort()).toEqual(['weekend-5', 'weekend-6']);
-    expect(screen.getAllByRole('checkbox')).toHaveLength(7);
+      .map((c) => c.getAttribute('aria-label') ?? c.id);
+    // 7 weekday checkboxes + the "Monthly billing cycle" switch (on by default).
+    expect(checked.sort()).toEqual(['Monthly billing cycle', 'weekend-5', 'weekend-6']);
+    expect(screen.getAllByRole('checkbox')).toHaveLength(8);
   });
 
   it('auto-fills the cycle end date from the start date', async () => {
@@ -107,6 +108,7 @@ describe('ProjectForm', () => {
     expect(actions.createProject.mock.calls[0][0]).toEqual({
       name: 'QL Marketplace',
       client_name: 'Qatar Living',
+      has_billing_cycle: true,
       billing_cycle_start_date: '2026-10-08',
       billing_cycle_end_date: '2026-11-07',
       currency: 'QAR',
@@ -117,6 +119,48 @@ describe('ProjectForm', () => {
       notes: '',
     });
     await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/projects/${PID}`));
+  });
+
+  it('creates a task-only project without a billing cycle (change request 6)', async () => {
+    actions.createProject.mockResolvedValue({ ok: true, data: { id: PID, code: 'PRJ-0009' } });
+    renderWithUser(<ProjectForm />);
+    await userEvent.type(screen.getByLabelText(/^name/i), 'Website');
+    await userEvent.type(screen.getByLabelText(/^client name/i), 'Doha Retail');
+    await userEvent.type(screen.getByLabelText(/^invoice to/i), 'Doha Retail');
+    await userEvent.type(screen.getByLabelText(/^invoice title/i), 'Website build');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Monthly billing cycle' }));
+    expect(screen.queryByLabelText(/^billing cycle start date/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Create project' }));
+    await waitFor(() => expect(actions.createProject).toHaveBeenCalled());
+    expect(actions.createProject.mock.calls[0][0]).toMatchObject({
+      name: 'Website',
+      has_billing_cycle: false,
+      billing_cycle_start_date: '',
+      billing_cycle_end_date: '',
+    });
+  });
+
+  it('shows the switch off for an existing project without a cycle', () => {
+    renderWithUser(
+      <ProjectForm
+        project={{
+          id: PID,
+          code: 'PRJ-0009',
+          name: 'Website',
+          client_name: 'Doha Retail',
+          billing_cycle_start_date: null,
+          billing_cycle_end_date: null,
+          currency: 'QAR',
+          invoice_to: 'Doha Retail',
+          invoice_title: 'Website build',
+          weekend_days: [5, 6],
+          payment_terms_days: 15,
+          notes: null,
+        }}
+      />,
+    );
+    expect(screen.getByRole('checkbox', { name: 'Monthly billing cycle' })).not.toBeChecked();
+    expect(screen.queryByLabelText(/^billing cycle start date/i)).not.toBeInTheDocument();
   });
 
   it('edits an existing project', async () => {

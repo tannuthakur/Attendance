@@ -44,7 +44,31 @@ export type CustomWizardLine = {
   unitPrice: string;
 };
 
-export type WizardLine = EmployeeWizardLine | CustomWizardLine;
+/** Tracked project task (task invoices): description editable, amount fixed from the task record. */
+export type TaskWizardLine = {
+  key: string;
+  kind: 'task';
+  taskId: string;
+  taskName: string;
+  description: string;
+  amount: string;
+  /** Stored invoice_lines.id (edit mode). */
+  lineId?: string;
+};
+
+export type WizardLine = EmployeeWizardLine | CustomWizardLine | TaskWizardLine;
+
+/** Wizard line for a tracked task (amount shown with 2 decimals; the server re-reads it from the DB). */
+export function taskWizardLine(task: { id: string; name: string; amount: number | string }): TaskWizardLine {
+  return {
+    key: `t-${task.id}`,
+    kind: 'task',
+    taskId: task.id,
+    taskName: task.name,
+    description: task.name,
+    amount: new Dec(task.amount).toFixed(2),
+  };
+}
 
 const DECIMAL = /^-?\d+(\.\d+)?$/;
 
@@ -57,11 +81,13 @@ export function customAmountOrNull(line: Pick<CustomWizardLine, 'quantity' | 'un
 }
 
 export function lineAmount(line: WizardLine): string | null {
-  return line.kind === 'employee' ? line.calc.amount : customAmountOrNull(line);
+  if (line.kind === 'employee') return line.calc.amount;
+  if (line.kind === 'task') return line.amount;
+  return customAmountOrNull(line);
 }
 
 export function isIncluded(line: WizardLine): boolean {
-  return line.kind === 'custom' || !line.excluded;
+  return line.kind !== 'employee' || !line.excluded;
 }
 
 export type WizardSummary = {
@@ -81,7 +107,7 @@ export function summarizeLines(lines: WizardLine[]): WizardSummary {
   let invalid = 0;
   for (const l of included) {
     const a = lineAmount(l);
-    if (a === null || (l.kind === 'custom' && !l.description.trim())) invalid++;
+    if (a === null || (l.kind !== 'employee' && !l.description.trim())) invalid++;
     if (a !== null) amounts.push(a);
   }
   const totals = invoiceTotals(amounts);
@@ -147,6 +173,8 @@ export function toDraftPayload(lines: WizardLine[]): { lines: DraftLineInput[]; 
     if (l.kind === 'employee') {
       if (l.excluded) excludedAssignmentIds.push(l.assignmentId);
       else out.push({ kind: 'employee', assignmentId: l.assignmentId, description: l.description.trim() });
+    } else if (l.kind === 'task') {
+      out.push({ kind: 'task', taskId: l.taskId, description: l.description.trim() });
     } else {
       out.push({ kind: 'custom', description: l.description.trim(), quantity: l.quantity.trim(), unitPrice: l.unitPrice.trim() });
     }
@@ -160,6 +188,7 @@ export function toEditPayload(lines: WizardLine[]): EditLineInput[] {
     if (l.kind === 'employee') {
       return l.lineId ? [{ kind: 'employee', lineId: l.lineId, description: l.description.trim() }] : [];
     }
+    if (l.kind === 'task') return l.lineId ? [{ kind: 'task', lineId: l.lineId, description: l.description.trim() }] : [];
     return [{ kind: 'custom', description: l.description.trim(), quantity: l.quantity.trim(), unitPrice: l.unitPrice.trim() }];
   });
 }
@@ -321,6 +350,7 @@ export type StoredLine = StoredLineRef & {
   unit_price: number;
   amount: number;
   calc_breakdown: unknown;
+  task_id?: string | null;
 };
 
 const str = (v: number | null | undefined, dp = 2) => (v === null || v === undefined ? '0' : new Dec(v).toFixed(dp));
@@ -360,6 +390,17 @@ export function wizardLinesFromStored(
             amount: str(l.amount),
             breakdown: storedBreakdown(l.calc_breakdown),
           },
+        };
+      }
+      if (l.task_id) {
+        return {
+          key: l.id,
+          kind: 'task',
+          lineId: l.id,
+          taskId: l.task_id,
+          taskName: l.description,
+          description: l.description,
+          amount: str(l.amount),
         };
       }
       return {

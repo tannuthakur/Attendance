@@ -17,14 +17,21 @@ import { AssignEmployeesDialog } from '@/features/projects/components/assign-emp
 import { ProjectAttendanceTab } from '@/features/attendance/components/project-attendance-tab';
 import { ProjectBillingCyclesTab } from '@/features/invoices/components/project-billing-cycles-tab';
 import { ProjectInvoicesTab } from '@/features/invoices/components/project-invoices-tab';
+import { ProjectTasksTab } from '@/features/tasks/components/project-tasks-tab';
 
-const TABS: DetailTab[] = [
+const ALL_TABS: DetailTab[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'team', label: 'Team' },
   { id: 'attendance', label: 'Attendance' },
+  { id: 'tasks', label: 'Tasks' },
   { id: 'cycles', label: 'Billing cycles' },
   { id: 'invoices', label: 'Invoices' },
 ];
+
+/** Projects without a monthly billing cycle (task-only billing) have no "Billing cycles" tab. */
+function tabsFor(hasCycle: boolean): DetailTab[] {
+  return hasCycle ? ALL_TABS : ALL_TABS.filter((t) => t.id !== 'cycles');
+}
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -39,9 +46,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ProjectPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const sp = await searchParams;
-  const tab = activeTab(TABS, sp.tab);
   const [project, today, settings] = await Promise.all([getProject(id), getToday(), getSettings()]);
   if (!project) notFound();
+  const tabs = tabsFor(project.billing_cycle_start_date !== null);
+  const tab = activeTab(tabs, sp.tab);
 
   return (
     <>
@@ -60,11 +68,12 @@ export default async function ProjectPage({ params, searchParams }: PageProps) {
         }
         actions={<ProjectAdminActions projectId={project.id} name={project.name} code={project.code} />}
       />
-      <DetailTabs basePath={`/projects/${project.id}`} tabs={TABS} active={tab} />
+      <DetailTabs basePath={`/projects/${project.id}`} tabs={tabs} active={tab} />
 
       {tab === 'overview' && <OverviewTab project={project} today={today} timeZone={settings.business_timezone} />}
       {tab === 'team' && <TeamTab project={project} today={today} />}
       {tab === 'attendance' && <ProjectAttendanceTab projectId={project.id} searchParams={sp} />}
+      {tab === 'tasks' && <ProjectTasksTab projectId={project.id} currency={project.currency} />}
       {tab === 'cycles' && <ProjectBillingCyclesTab projectId={project.id} />}
       {tab === 'invoices' && <ProjectInvoicesTab projectId={project.id} />}
     </>
@@ -97,13 +106,19 @@ async function OverviewTab({ project, today, timeZone }: { project: Project; tod
             <Field label="Name">{project.name}</Field>
             <Field label="Client">{project.client_name}</Field>
             <Field label="Currency">{currencyLabel(project.currency)}</Field>
-            <Field label="First billing cycle">
-              {formatDate(project.billing_cycle_start_date)} – {formatDate(project.billing_cycle_end_date)}
-            </Field>
-            <Field label="Current cycle">
-              {formatDate(project.current_cycle_start)} – {formatDate(project.current_cycle_end)} (anchor day{' '}
-              {project.billing_anchor_day})
-            </Field>
+            {project.billing_cycle_start_date ? (
+              <>
+                <Field label="First billing cycle">
+                  {formatDate(project.billing_cycle_start_date)} – {formatDate(project.billing_cycle_end_date)}
+                </Field>
+                <Field label="Current cycle">
+                  {formatDate(project.current_cycle_start)} – {formatDate(project.current_cycle_end)} (anchor day{' '}
+                  {project.billing_anchor_day})
+                </Field>
+              </>
+            ) : (
+              <Field label="Billing">No monthly cycle — invoiced per task</Field>
+            )}
             <Field label="Weekend days">
               {project.weekend_days.length ? project.weekend_days.map((d) => WEEKDAYS[d]).join(', ') : 'None'}
             </Field>

@@ -22,7 +22,8 @@ export type PdfInvoiceInput = Pick<
   | 'invoice_to'
   | 'subtotal'
   | 'total'
->;
+> &
+  Partial<Pick<Tables<'invoices'>, 'kind'>>;
 
 export type PdfLineInput = Pick<
   Tables<'invoice_lines'>,
@@ -194,6 +195,7 @@ export function buildInvoicePdfData(
       periodStart: formatDate(invoice.period_start),
       periodEnd: formatDate(invoice.period_end),
       period: { start: dateParts(invoice.period_start), end: dateParts(invoice.period_end) },
+      showPeriod: invoice.kind !== 'task',
       currency: invoice.currency,
       notes: opt(invoice.notes),
       version: invoice.version,

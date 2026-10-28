@@ -129,6 +129,7 @@ describe('buildInvoicePdfData', () => {
           },
           "periodEnd": "07 Nov 2026",
           "periodStart": "08 Oct 2026",
+          "showPeriod": true,
           "status": "issued",
           "title": "Development Work – October 2026",
           "version": 1,

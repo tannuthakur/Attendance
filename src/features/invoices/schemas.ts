@@ -37,8 +37,17 @@ export const draftLineSchema = z.discriminatedUnion('kind', [
     description: z.string().trim().min(1, 'Description is required').max(500),
   }),
   customLineSchema.extend({ kind: z.literal('custom') }),
+  // Tracked project task (change request 6): amount always comes from the task record on the server.
+  z.object({
+    kind: z.literal('task'),
+    taskId: uuid,
+    description: z.string().trim().min(1, 'Description is required').max(500),
+  }),
 ]);
 export type DraftLineInput = z.infer<typeof draftLineSchema>;
+
+export const INVOICE_TYPES = ['cycle', 'task'] as const;
+export type InvoiceType = (typeof INVOICE_TYPES)[number];
 
 const periodShape = { periodStart: isoDate, periodEnd: isoDate };
 const periodOrder = (v: { periodStart: string; periodEnd: string }) => v.periodEnd >= v.periodStart;
@@ -64,6 +73,8 @@ export const generateInvoiceSchema = z
     projectId: uuid,
     ...periodShape,
     ...detailsShape,
+    /** 'cycle' = billing cycle (employees & attendance); 'task' = tracked tasks + free-text lines. */
+    invoiceType: z.enum(INVOICE_TYPES).default('cycle'),
     excludedAssignmentIds: z.array(uuid).default([]),
     lines: z.array(draftLineSchema).min(1, 'An invoice needs at least one line').max(500),
     /** Set after the user confirmed the "overlapping invoice" warning. */
@@ -81,6 +92,11 @@ export const editLineSchema = z.discriminatedUnion('kind', [
     description: z.string().trim().min(1, 'Description is required').max(500),
   }),
   customLineSchema.extend({ kind: z.literal('custom') }),
+  z.object({
+    kind: z.literal('task'),
+    lineId: uuid,
+    description: z.string().trim().min(1, 'Description is required').max(500),
+  }),
 ]);
 export type EditLineInput = z.infer<typeof editLineSchema>;
 

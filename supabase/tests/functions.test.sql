@@ -63,6 +63,18 @@ select throws_ok($$ select public.invoice_action((select id from public.invoices
 select throws_ok($$ select public.invoice_action((select id from public.invoices where project_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), 'delete') $$,
   'P0001', 'INVOICE_LOCKED', 'paid invoice cannot be deleted');
 
+-- Task invoices (change request 6): optional billing cycle, tasks billed once, freed on void/delete
+select lives_ok($$ insert into public.projects (id, name, client_name, invoice_to, invoice_title) values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Fn Tasks', 'Client', 'Client', 'Tasks') $$, 'project without a billing cycle');
+select throws_ok($$ insert into public.projects (name, client_name, invoice_to, invoice_title, billing_cycle_start_date) values ('x', 'x', 'x', 'x', '2026-10-01') $$, '23514', null, 'billing cycle needs both dates');
+insert into public.project_tasks (id, project_id, name, amount) values ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Design', 500);
+select is((public.save_invoice('{"kind":"task","project_id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","period_start":"2091-01-05","period_end":"2091-01-05","issue_date":"2091-01-05","due_date":"2091-01-20","currency":"USD","client_name":"c","invoice_to":"c","invoice_title":"t","lines":[{"line_type":"custom","description":"Design","amount":"500","task_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc"}]}')).kind, 'task', 'task invoice saved');
+select isnt_empty($$ select 1 from public.project_tasks where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' and invoice_id is not null $$, 'task linked to its invoice');
+select throws_ok($$ select public.save_invoice('{"kind":"task","project_id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","period_start":"2091-01-06","period_end":"2091-01-06","issue_date":"2091-01-06","due_date":"2091-01-20","currency":"USD","client_name":"c","invoice_to":"c","invoice_title":"t","lines":[{"line_type":"custom","description":"Design","amount":"500","task_id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc"}]}') $$,
+  'P0001', 'TASK_ALREADY_INVOICED', 'a task cannot be billed twice');
+select throws_ok($$ delete from public.project_tasks where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' $$, '23503', null, 'invoiced task cannot be deleted');
+select lives_ok($$ select public.invoice_action((select id from public.invoices where project_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'), 'void', '{"reason":"test"}') $$, 'void task invoice');
+select is_empty($$ select 1 from public.project_tasks where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' and invoice_id is not null $$, 'voiding frees the task');
+
 -- Last active admin is protected
 select throws_ok($$ update public.profiles set access_role = 'viewer' where id = '88888888-8888-4888-8888-888888888888' and not exists (select 1 from public.profiles where access_role = 'admin' and is_active and id <> '88888888-8888-4888-8888-888888888888') $$,
   'P0001', 'LAST_ADMIN', 'cannot demote last active admin')

@@ -40,6 +40,8 @@ const data: WizardData = {
   cycles,
   invoices: [],
   defaultCycle: cycles[1],
+  tasks: [],
+  requestedType: null,
 };
 
 function line(assignmentId: string, name: string, amount: string): EmployeeLineView {

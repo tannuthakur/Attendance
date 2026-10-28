@@ -12,9 +12,7 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
 ## 0. Resume here (state at end of 27 Oct 2026)
 
 ### 0.1 Start here (in this order)
-0. **Change request 6 (task invoices / optional cycle): built & tested, committed locally, NOT pushed** — waiting for
-   the user to run `supabase/cloud-setup/05_task_invoices.sql` on Supabase; then `git push` (auto-deploys) and
-   live-check (see §3b last item).
+0. ~~Change request 6 (task invoices / optional cycle)~~ — **DONE & live 28 Oct** (§3b).
 1. **Open decision for the user:**
    - ~~PDF page 2~~ — **answered & done 28 Oct** (Round 5: automatic density, single page up to ~15 lines).
    - **Role names on invoice lines:** lines print the job role ("Frontend", "Backend", "DevOps"); reference uses
@@ -281,7 +279,7 @@ Done from the earlier list: ~~Company data in Settings~~ (filled from the refere
 
 ---
 
-## 3b. Change request 6 — invoices per task, billing cycle optional (user, 28 Oct 2026) — DONE, awaiting DB upgrade + deploy
+## 3b. Change request 6 — invoices per task, billing cycle optional (user, 28 Oct 2026) — DONE & LIVE
 
 > "Invoices can also be generated against a particular task — it is not compulsory that each project has a
 > billing cycle. It can be there or not."
@@ -326,9 +324,14 @@ Plan / status:
 - [x] PDF: "PARTICULARS | TOTAL (USD)" without dates for task invoices (`invoice.showPeriod`)
 - [x] Dashboard "Ready to invoice" skips task-only projects and ignores task invoices; attendance presets skip them
 - [x] Tests: 23 new (unit + component), 469 passing; lint/typecheck/build green
-- [ ] **USER: run `supabase/cloud-setup/05_task_invoices.sql` in the Supabase SQL Editor** → then push (auto-deploy)
-      and live check (create a task-only project, add tasks, generate + preview a task invoice). Code is committed
-      locally but NOT pushed, because production would break without the new columns.
+- [x] User ran `05_task_invoices.sql` on Supabase (verified via REST: `invoices.kind`, `project_tasks`,
+      `project_task_list`, `invoice_lines.task_id`, null-safe `project_list`)
+- [x] Pushed `b73d1b2` → Vercel auto-deploy READY
+- [x] **Live check 28 Oct** (real browser on production): created a project with the cycle switched off (no
+      "Billing cycles" tab), added 2 tasks (1 completed), wizard forced "Tasks", completed task pre-ticked, ticked the
+      2nd, added a free-text line → total USD 2,150.00 → Preview PDF correct ("PARTICULARS | TOTAL (USD)", task lines,
+      bank details, signature). Test project PRJ-0004 + tasks deleted afterwards; no invoice generated (sequence
+      still 2535 → next S2536). Not yet exercised live: Generate (save) of a task invoice — first real one will do it.
 
 ## 3c. CI end-to-end tests (first run 28 Oct, commit `a1a458f`)
 - [x] CI pipeline green through lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration

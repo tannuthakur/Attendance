@@ -2,42 +2,48 @@
 
 > **Purpose:** single place to resume work if context is lost. Read this first, then `SPEC.md` (requirements)
 > and `docs/ARCHITECTURE.md` (code conventions).
-> **Last updated:** 28 Oct 2026 (Vercel relinked + auto-deploy; pgTAP green; integration tests in progress) — app live on Vercel (login + PDF preview verified).
-> Start at §0.1.
+> **Last updated:** 28 Oct 2026, evening — everything deployed & in sync (code `main` = GitHub = Vercel production,
+> all 9 DB migrations applied). Task invoices live. Start at §0.1.
 
 Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `[ ]` not started
 
 ---
 
-## 0. Resume here (state at end of 27 Oct 2026)
+## 0. Resume here (state at end of 28 Oct 2026)
 
 ### 0.1 Start here (in this order)
-0. ~~Change request 6 (task invoices / optional cycle)~~ — **DONE & live 28 Oct** (§3b).
-1. **Open decision for the user:**
-   - ~~PDF page 2~~ — **answered & done 28 Oct** (Round 5: automatic density, single page up to ~15 lines).
-   - **Role names on invoice lines:** lines print the job role ("Frontend", "Backend", "DevOps"); reference uses
+1. **Fix the CI end-to-end tests** (§3c): 18 passed, 6 failed, 1 didn't run — test-script selector issues, not app
+   bugs. Read failures from the public run annotations (§5 "CI failures"). Everything before e2e is green in CI
+   (lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration).
+2. **Open questions for the user** (ask, then record the answer):
+   - **Role names on invoice lines:** lines print the job role ("Frontend", "Backend", "DevOps"); references use
      "Frontend Developer", "Backend Developer", "DevOps Engineer". Options: rename job roles (Admin ▸ Roles),
-     set *Role on project* per assignment, or edit line text in the wizard.
-2. ~~Relink Vercel to `tannuthakur/Attendance`~~ — **DONE 28 Oct**: project relinked (decision B); pushes to `main`
-   now auto-deploy (first auto-deploy `df9a6c5` READY, live check: login + 10 pages + PDF preview OK).
-3. **User actions still pending** (remind them): Supabase Auth ▸ URL Configuration (Site URL
-   `https://attendancepayroll.vercel.app`, redirect `https://attendancepayroll.vercel.app/auth/callback`), Reset
-   Password + Invite email templates, sign-ups off (**checked 28 Oct: sign-ups still ON**), SMTP; change admin
-   password; delete the Vercel token when done.
-4. ~~Fix pgTAP in CI~~ — **DONE 28 Oct** (numbering test collided with seed data). CI now passes pgTAP; integration
-   tests run for the first time (8/10 files passed on first try). Continue fixing CI until integration + e2e are
-   green — read failures via the run annotation (see §5 "CI failures").
-5. Then continue with §3 (first real invoice S2536 end-to-end, viewer walkthrough, invoice actions, test suites).
+     set *Role on project* per assignment, or edit the line text in the wizard.
+   - **Due date position:** S2535 has it in the header (current layout); S2532 shows "Invoice Due Date: …" under the
+     bank details instead. Which one?
+   - **First names vs full names** on lines ("Er. Anmol" vs "Er. Anmol Choudhary") — full names make leave notes wrap.
+3. **User actions still pending** (remind them): Supabase ▸ Authentication — **turn sign-ups OFF (checked 28 Oct:
+   still ON — anyone can register)**, Site URL `https://attendancepayroll.vercel.app` + redirect
+   `https://attendancepayroll.vercel.app/auth/callback`, Reset Password + Invite email templates, SMTP; change the
+   admin password; delete the Vercel token when deployment work is done.
+4. Then §3: first real invoices (S2536 cycle invoice and a first task invoice → confirms Generate/save on Vercel),
+   viewer walkthrough, invoice actions walkthrough.
+
+Done 28 Oct (details in §3a–§3c): Vercel relinked to `tannuthakur/Attendance` with auto-deploy · pgTAP + integration
+tests fixed and green in CI · Round 5 PDF (single page + leave dates) · change request 6 (task invoices, optional
+billing cycle) built, DB-upgraded, deployed and live-checked.
 
 ### 0.2 Where everything stands
-- **Code:** all 13 build phases of `SPEC.md` §14 done + 4 rounds of invoice-format change requests (§3a) + Vercel
-  fixes. Lint/typecheck clean, **438 unit/component tests pass** (92.6 % lines / 85.3 % branches, billing 100 %).
+- **Code:** all 13 build phases of `SPEC.md` §14 done + 5 rounds of invoice-format change requests (§3a) + change
+  request 6 task invoices (§3b) + Vercel fixes. Lint/typecheck/build clean, **469 unit/component tests pass**
+  (92.3 % lines / 85.2 % branches, billing 100 %); 105 pgTAP assertions + 10 integration test files green in CI.
 - **Repo (main):** https://github.com/tannuthakur/Attendance — branch `main`, **PUBLIC repo** → never commit secrets,
   bank details, the logo/signature images or `.env.local` (history scanned 27 Oct: clean). Commit + push after
   every change. `tannuthakur/attendance_payroll` is an OLD private copy — don't use it.
 - **Live app:** https://attendancepayroll.vercel.app (Vercel project `attendance_payroll`, team `tannu17`,
   team id `team_bZreo23qVKrfMQG46jxgCLeW`, project id `prj_iJWoINKFYYiBUQg3mvTbt8C0jswm`, runtime Node 24).
-  - Login, all 10 main pages and the **PDF preview popup + download** verified on production 27 Oct.
+  - Login, all 10 main pages, **PDF preview popup + download** (27–28 Oct) and the **task invoice flow** (28 Oct)
+    verified on production. Production = commit `8dc8525` (= `main`).
   - **Git-linked to `tannuthakur/Attendance` (`main`) since 28 Oct → every push to `main` deploys to production
     automatically** (a "Vercel" status appears on the commit in GitHub). Manual fallback:
     `set -a; . ./.env.local; set +a; npx -y vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" --scope tannu17`
@@ -50,7 +56,8 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
   - Vercel token `VERCEL_TOKEN` is in `.env.local` (was pasted in chat → user should delete it when done; the CLI
     also added `VERCEL_OIDC_TOKEN` there).
 - **Database:** Supabase Cloud project `ifslmdsqykywsavdvium` (URL/keys in `.env.local`).
-  - All 8 migrations applied (`01_schema.sql` + `04_invoice_format.sql`). **No pending migration.**
+  - All 9 migrations applied (`01_schema.sql` + `04_invoice_format.sql` + `05_task_invoices.sql`), verified 28 Oct.
+    **No pending migration.** New DB changes → give the user a `supabase/cloud-setup/0N_*.sql` to run BEFORE pushing.
   - Admin `admin@yopmail.com` (password = `SEED_ADMIN_PASSWORD` in `.env.local`, digits only → should be changed).
     Only user so far (no viewer yet).
   - Real data: 12 employees, 2 projects (Saudi Living PRJ-0002 `54dc9c01-…`, Qatar Living PRJ-0003 `225b07c7-…`),
@@ -71,7 +78,7 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
 ```bash
 cd /Users/sunfocus/Documents/NewInvoiceGenerated
 pnpm install
-pnpm lint && pnpm typecheck && pnpm test      # should be green (438 tests)
+pnpm lint && pnpm typecheck && pnpm test      # should be green (469 tests)
 pnpm build && pnpm start                       # http://localhost:3000
 # if port 3000 is busy:  lsof -ti tcp:3000 | xargs kill
 pnpm db:bundle                                 # regenerate supabase/cloud-setup/*.sql after migration changes

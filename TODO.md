@@ -91,7 +91,7 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
 | # | Phase | Status | Notes |
 |---|---|---|---|
 | 1 | Scaffold: Next 15, Tailwind v4, shadcn, ESLint/Prettier, Vitest, Playwright, CI | [x] | CI runs on every push; green through pgTAP; integration tests being fixed |
-| 2 | Migrations, RLS, seed, DB types, pgTAP | [x] | 8 migrations + seed verified on PGlite, on real Postgres in CI and applied to cloud. **pgTAP passes in CI** (97 assertions) |
+| 2 | Migrations, RLS, seed, DB types, pgTAP | [x] | 9 migrations + seed verified on PGlite, on real Postgres in CI and applied to cloud. **pgTAP passes in CI** (105 assertions) |
 | 3 | Auth: login, logout, forgot/reset, middleware, 403, seed admin | [x] | Admin login verified locally + on Vercel. Reset-email flow **not verified** (needs §3 item 2) |
 | 4 | Layout, DataTable + URL params, CSV export | [x] | Component-tested |
 | 5 | Admin: users, job roles, designations, settings | [x] | Settings used for real (company data saved) |
@@ -152,7 +152,7 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
 - [x] Global search (`/api/search`), sidebar, user menu (theme, change password, logout)
 
 ### 2.4 Tests
-- [x] Unit + component: 38 files, **438 tests**, all passing; coverage 92.6 % lines / 85.3 % branches; billing 100 %
+- [x] Unit + component: 40 files, **469 tests**, all passing; coverage 92.3 % lines / 85.2 % branches; billing 100 %
 - [~] Integration (`tests/integration/*.test.ts`, 10 files) — **run in CI since 28 Oct** against CI's own throwaway
       Supabase (not the real project). Fixed so far: email provider disabled in `supabase/config.toml`
       (`[auth.email] enable_signup` must be true), JSX parse error (React plugin in `vitest.integration.config.ts`).

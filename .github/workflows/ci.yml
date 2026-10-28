@@ -67,13 +67,13 @@ jobs:
         run: pnpm test:db
 
       - name: Integration tests
-        run: pnpm test:integration
+        run: scripts/ci-annotate.sh "Integration tests" pnpm test:integration
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
       - name: E2E tests
-        run: pnpm test:e2e
+        run: scripts/ci-annotate.sh "E2E tests" pnpm test:e2e
 
       - name: Upload coverage
         if: always()

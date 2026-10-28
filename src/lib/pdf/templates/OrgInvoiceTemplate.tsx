@@ -1,5 +1,5 @@
 import { Document, Image, Link, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
-import type { InvoicePdfData, PdfDateParts } from '../types';
+import type { InvoicePdfData, PdfDateParts, PdfTextPart } from '../types';
 
 // Organisation invoice format (Sunfocus Solutions, reference "INVOICE S2535.pdf"):
 // bordered A4 page · centred heading · logo box · company block left / invoice no + dates right ·
@@ -9,6 +9,21 @@ import type { InvoicePdfData, PdfDateParts } from '../types';
 const C = { text: '#000000', border: '#000000', head: '#dce6f1', link: '#1155cc', void: '#dc2626', paid: '#059669' };
 const FRAME = 28; // page margin to the outer border
 const INSET = 22; // border to content
+
+// Spacing tightens as the invoice grows so bank details + signature stay on page 1 as long as possible.
+// ≤ 6 lines = the reference layout; very long invoices still flow onto further pages.
+type Density = { rowPad: number; to: number; bank: number; signature: number; logoGap: number; headingGap: number; font: number };
+const DENSITY: Record<'normal' | 'compact' | 'dense', Density> = {
+  normal: { rowPad: 10, to: 22, bank: 32, signature: 28, logoGap: 14, headingGap: 14, font: 10.5 },
+  compact: { rowPad: 6, to: 14, bank: 18, signature: 12, logoGap: 8, headingGap: 10, font: 10.5 },
+  dense: { rowPad: 3.5, to: 10, bank: 12, signature: 6, logoGap: 6, headingGap: 8, font: 9.5 },
+};
+
+export function densityFor(lineCount: number): keyof typeof DENSITY {
+  if (lineCount <= 6) return 'normal';
+  if (lineCount <= 10) return 'compact';
+  return 'dense';
+}
 
 const s = StyleSheet.create({
   page: {
@@ -37,9 +52,11 @@ const s = StyleSheet.create({
   table: { borderWidth: 0.75, borderColor: C.border },
   tr: { flexDirection: 'row', borderTopWidth: 0.75, borderColor: C.border },
   trHead: { flexDirection: 'row', backgroundColor: C.head },
-  cDesc: { flexGrow: 1, flexBasis: 0, paddingVertical: 10, paddingHorizontal: 14 },
-  cAmt: { width: 140, paddingVertical: 10, paddingHorizontal: 8, textAlign: 'center', borderLeftWidth: 0.75, borderColor: C.border },
+  cDesc: { flexGrow: 1, flexBasis: 0, paddingVertical: 10, paddingHorizontal: 12 },
+  // Narrow amount column (as in the reference) leaves room for leave notes on one line.
+  cAmt: { width: 108, paddingVertical: 10, paddingHorizontal: 8, textAlign: 'center', borderLeftWidth: 0.75, borderColor: C.border },
   sup: { fontSize: 6.5, verticalAlign: 'super' },
+  leaveNote: { color: '#000000' },
   notes: { marginTop: 14 },
   bank: { marginTop: 32 },
   signature: { width: 100, height: 40, objectFit: 'contain', objectPosition: 'left', marginTop: 28 },
@@ -83,6 +100,23 @@ function DateWithSup({ d, withYear }: { d: PdfDateParts; withYear: boolean }) {
   );
 }
 
+/** Renders text parts, superscripting ordinal suffixes ("28<sup>th</sup> Sept"). */
+function Parts({ parts }: { parts: PdfTextPart[] }) {
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.sup ? (
+          <Text key={i} style={s.sup}>
+            {p.text}
+          </Text>
+        ) : (
+          p.text
+        ),
+      )}
+    </>
+  );
+}
+
 function lines(text: string): string[] {
   return text.split(/\r?\n/).filter((l) => l.trim() !== '');
 }
@@ -91,16 +125,20 @@ export function OrgInvoiceTemplate({ data }: { data: InvoicePdfData }) {
   const { company, invoice, billTo, totals } = data;
   const sameYear = invoice.period.start.year === invoice.period.end.year;
   const [clientFirst, ...clientRest] = lines(billTo.invoiceTo).length ? lines(billTo.invoiceTo) : [billTo.clientName];
+  // Long leave notes take extra height, so they count towards the density level.
+  const rowsEstimate = data.lines.length + data.lines.filter((l) => (l.leaveNote?.length ?? 0) > 12).length * 0.5;
+  const d = DENSITY[densityFor(Math.ceil(rowsEstimate))];
+  const cell = { paddingVertical: d.rowPad };
 
   return (
     <Document title={`Invoice ${invoice.number}`} author={company.name} subject={invoice.title}>
-      <Page size="A4" style={s.page}>
+      <Page size="A4" style={[s.page, { fontSize: d.font }]}>
         <View style={s.frame} fixed />
 
-        <Text style={s.heading}>{invoice.heading}</Text>
+        <Text style={[s.heading, { marginBottom: d.headingGap }]}>{invoice.heading}</Text>
 
         {company.logoUrl && (
-          <View style={s.logoBox}>
+          <View style={[s.logoBox, { marginBottom: d.logoGap }]}>
             {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop */}
             <Image src={company.logoUrl} style={s.logo} />
           </View>
@@ -132,7 +170,7 @@ export function OrgInvoiceTemplate({ data }: { data: InvoicePdfData }) {
           </View>
         </View>
 
-        <View style={s.to}>
+        <View style={[s.to, { marginTop: d.to }]}>
           <Text style={s.bold}>To</Text>
           <Text style={s.bold}>{clientFirst.toUpperCase()}</Text>
           {clientRest.map((l, i) => (
@@ -142,23 +180,29 @@ export function OrgInvoiceTemplate({ data }: { data: InvoicePdfData }) {
 
         <View style={s.table}>
           <View style={s.trHead} fixed>
-            <Text style={[s.cDesc, s.bold]}>
+            <Text style={[s.cDesc, cell, s.bold]}>
               PARTICULARS (<DateWithSup d={invoice.period.start} withYear={!sameYear} /> TO{' '}
               <DateWithSup d={invoice.period.end} withYear />)
             </Text>
-            <Text style={[s.cAmt, s.bold]}>TOTAL ({invoice.currency})</Text>
+            <Text style={[s.cAmt, cell, s.bold]}>TOTAL ({invoice.currency})</Text>
           </View>
           {data.lines.map((l) => (
             <View key={l.sNo} style={s.tr} wrap={false}>
-              <Text style={s.cDesc}>
+              <Text style={[s.cDesc, cell]}>
                 {l.sNo}. {l.description}
+                {l.leaveNote && (
+                  <Text style={s.leaveNote}>
+                    {'   '}
+                    <Parts parts={l.leaveNote} />
+                  </Text>
+                )}
               </Text>
-              <Text style={s.cAmt}>{l.amount}</Text>
+              <Text style={[s.cAmt, cell]}>{l.amount}</Text>
             </View>
           ))}
           <View style={s.tr} wrap={false}>
-            <Text style={[s.cDesc, s.bold]}>TOTAL DUE</Text>
-            <Text style={[s.cAmt, s.bold]}>{totals.total}</Text>
+            <Text style={[s.cDesc, cell, s.bold]}>TOTAL DUE</Text>
+            <Text style={[s.cAmt, cell, s.bold]}>{totals.total}</Text>
           </View>
         </View>
 
@@ -173,7 +217,7 @@ export function OrgInvoiceTemplate({ data }: { data: InvoicePdfData }) {
 
         <View wrap={false}>
           {company.bankDetails && (
-            <View style={s.bank}>
+            <View style={[s.bank, { marginTop: d.bank }]}>
               <Text style={s.bold}>BANK ACCOUNT DETAILS:</Text>
               {lines(company.bankDetails).map((l, i) => (
                 <Text key={i}>{l}</Text>
@@ -182,9 +226,9 @@ export function OrgInvoiceTemplate({ data }: { data: InvoicePdfData }) {
           )}
           {company.signatureUrl ? (
             // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
-            <Image src={company.signatureUrl} style={s.signature} />
+            <Image src={company.signatureUrl} style={[s.signature, { marginTop: d.signature }]} />
           ) : (
-            <View style={s.signatureSpacer} />
+            <View style={[s.signatureSpacer, { marginTop: d.signature }]} />
           )}
           {company.footer && <Text style={s.footer}>{company.footer}</Text>}
         </View>

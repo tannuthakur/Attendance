@@ -2,7 +2,7 @@
 
 > **Purpose:** single place to resume work if context is lost. Read this first, then `SPEC.md` (requirements)
 > and `docs/ARCHITECTURE.md` (code conventions).
-> **Last updated:** 28 Oct 2026 (reviewed; facts re-checked) — app live on Vercel (login + PDF preview verified).
+> **Last updated:** 28 Oct 2026 (Vercel relinked + auto-deploy; pgTAP green; integration tests in progress) — app live on Vercel (login + PDF preview verified).
 > Start at §0.1.
 
 Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `[ ]` not started
@@ -12,22 +12,20 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
 ## 0. Resume here (state at end of 27 Oct 2026)
 
 ### 0.1 Tomorrow — start here (in this order)
-1. **Ask the user for 2 open decisions** (raised 27 Oct, not answered yet):
-   - **PDF page 2:** with 7+ invoice lines the bank-details + signature block moves to page 2 (reference invoice
-     has 6 lines, fits one page). Offer: tighten spacing in `OrgInvoiceTemplate.tsx` so 7–8 lines fit on one page.
+1. **Open decision for the user:**
+   - ~~PDF page 2~~ — **answered & done 28 Oct** (Round 5: automatic density, single page up to ~15 lines).
    - **Role names on invoice lines:** lines print the job role ("Frontend", "Backend", "DevOps"); reference uses
      "Frontend Developer", "Backend Developer", "DevOps Engineer". Options: rename job roles (Admin ▸ Roles),
      set *Role on project* per assignment, or edit line text in the wizard.
-2. **Check whether the user gave the Vercel GitHub App access to `tannuthakur/Attendance`**
-   (github.com/settings/installations → Vercel → Configure → Repository access). If yes → relink the Vercel
-   project to `Attendance` (decision **B**) with the API call in §3 item 12 (user already approved), then push
-   → auto-deploy. If not → keep deploying with the CLI command below.
+2. ~~Relink Vercel to `tannuthakur/Attendance`~~ — **DONE 28 Oct**: project relinked (decision B); pushes to `main`
+   now auto-deploy (first auto-deploy `df9a6c5` READY, live check: login + 10 pages + PDF preview OK).
 3. **User actions still pending** (remind them): Supabase Auth ▸ URL Configuration (Site URL
    `https://attendancepayroll.vercel.app`, redirect `https://attendancepayroll.vercel.app/auth/callback`), Reset
    Password + Invite email templates, sign-ups off (**checked 28 Oct: sign-ups still ON**), SMTP; change admin
    password; delete the Vercel token when done.
-4. **Fix the failing CI step "Database tests (pgTAP)"** — every push since 27 Oct fails only there (§2.4). Ask the user
-   to paste the error from GitHub ▸ Actions (logs need a signed-in user), or reason it out from `supabase/tests/*.sql`.
+4. ~~Fix pgTAP in CI~~ — **DONE 28 Oct** (numbering test collided with seed data). CI now passes pgTAP; integration
+   tests run for the first time (8/10 files passed on first try). Continue fixing CI until integration + e2e are
+   green — read failures via the run annotation (see §5 "CI failures").
 5. Then continue with §3 (first real invoice S2536 end-to-end, viewer walkthrough, invoice actions, test suites).
 
 ### 0.2 Where everything stands
@@ -39,9 +37,8 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
 - **Live app:** https://attendancepayroll.vercel.app (Vercel project `attendance_payroll`, team `tannu17`,
   team id `team_bZreo23qVKrfMQG46jxgCLeW`, project id `prj_iJWoINKFYYiBUQg3mvTbt8C0jswm`, runtime Node 24).
   - Login, all 10 main pages and the **PDF preview popup + download** verified on production 27 Oct.
-  - Current production = CLI deploy made right after commit `a8af61a` (PDF font fix); later commits (`def9df7`,
-    `e4d760e`, …) changed only docs/config, so production code = `main`. Vercel's Git link still points to the old
-    `attendance_payroll` repo → **pushes to GitHub do NOT deploy**. Deploy with:
+  - **Git-linked to `tannuthakur/Attendance` (`main`) since 28 Oct → every push to `main` deploys to production
+    automatically** (a "Vercel" status appears on the commit in GitHub). Manual fallback:
     `set -a; . ./.env.local; set +a; npx -y vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" --scope tannu17`
     (local dir linked via `.vercel/`; `.vercelignore` keeps `.env*`, node_modules, .next out of the upload).
   - Vercel env vars (Production + Preview) verified 27 Oct: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -85,8 +82,8 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
 
 | # | Phase | Status | Notes |
 |---|---|---|---|
-| 1 | Scaffold: Next 15, Tailwind v4, shadcn, ESLint/Prettier, Vitest, Playwright, CI | [x] | CI runs on every push (GitHub Actions); green up to the pgTAP step |
-| 2 | Migrations, RLS, seed, DB types, pgTAP | [x] / [ ] | 8 migrations + seed verified on PGlite, on real Postgres in CI (`supabase db reset`) and applied to cloud. **pgTAP fails in CI** |
+| 1 | Scaffold: Next 15, Tailwind v4, shadcn, ESLint/Prettier, Vitest, Playwright, CI | [x] | CI runs on every push; green through pgTAP; integration tests being fixed |
+| 2 | Migrations, RLS, seed, DB types, pgTAP | [x] | 8 migrations + seed verified on PGlite, on real Postgres in CI and applied to cloud. **pgTAP passes in CI** (97 assertions) |
 | 3 | Auth: login, logout, forgot/reset, middleware, 403, seed admin | [x] | Admin login verified locally + on Vercel. Reset-email flow **not verified** (needs §3 item 2) |
 | 4 | Layout, DataTable + URL params, CSV export | [x] | Component-tested |
 | 5 | Admin: users, job roles, designations, settings | [x] | Settings used for real (company data saved) |
@@ -130,7 +127,8 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
 - [x] All migrations applied to the cloud DB (verified via REST)
 - [x] `src/types/database.ts` hand-generated by `scripts/gen-db-types.mjs`
 - [ ] Replace hand-written types with `supabase gen types` output (needs Supabase CLI) and fix any type drift
-- [ ] pgTAP: `supabase/tests/{rls,constraints,functions}.test.sql` — **runs in CI and fails** (error not yet read)
+- [x] pgTAP: `supabase/tests/{rls,constraints,functions}.test.sql` — **passes in CI** (fixed 28 Oct: numbering test used the
+      2026 scope that seed data already uses)
 
 ### 2.3 Modules (all `[x]` = built, typecheck/lint clean, unit + component tests pass)
 - [x] Auth (`src/features/auth`, `src/app/(auth)`, `/auth/callback`, `/auth/signout`)
@@ -145,14 +143,17 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
 
 ### 2.4 Tests
 - [x] Unit + component: 38 files, **438 tests**, all passing; coverage 92.6 % lines / 85.3 % branches; billing 100 %
-- [~] Integration (`tests/integration/*.test.ts`): auth, users, lookups, settings, employees, projects, attendance,
-      holidays, invoices, dashboard — **never run** (need a database; they create test users `it-*@test.local`)
+- [~] Integration (`tests/integration/*.test.ts`, 10 files) — **run in CI since 28 Oct** against CI's own throwaway
+      Supabase (not the real project). Fixed so far: email provider disabled in `supabase/config.toml`
+      (`[auth.email] enable_signup` must be true), JSX parse error (React plugin in `vitest.integration.config.ts`).
+      First full run: 8/10 files passed.
 - [~] E2E (`tests/e2e`, 14 spec files incl. 01 full admin flow & 08 viewer) — **never run**;
       most assume `supabase/seed.sql` demo data is loaded
-- [ ] pgTAP — **fails in CI** on every push (`Database tests (pgTAP)` step); not runnable on this Mac (no Docker)
-- [~] CI workflow (`.github/workflows/ci.yml`) runs on every push. Passing steps: install, lint, typecheck, Supabase
-      start, `db reset` (all migrations + seed on real Postgres), unit + component tests with coverage.
-      Failing: pgTAP. Not reached yet: integration tests, Playwright e2e.
+- [x] pgTAP — passes in CI. Locally: emulated on PGlite with pgTAP stand-ins (all 97 assertions pass).
+- [~] CI workflow (`.github/workflows/ci.yml`) runs on every push. Passing: install, lint, typecheck, Supabase start,
+      `db reset` (migrations + seed), unit + component tests with coverage, **pgTAP**. In progress: integration
+      tests. Not reached yet: Playwright e2e. Failure details are published as a run annotation by
+      `scripts/ci-annotate.sh` (readable without login).
 
 ### 2.5 Verified against the live app (27 Oct 2026)
 - [x] `pnpm build` with real env; app running at http://localhost:3000
@@ -184,13 +185,13 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
 4. [ ] **Create a viewer user** and walk through read-only mode.
 5. [ ] **Manual walkthrough** of the remaining flows (SPEC §12.5): edit number, mark paid, void, delete,
        regenerate after an attendance change (Outdated badge).
-6. [ ] **Run integration tests**: `pnpm test:integration`
-       (⚠ writes test data — use a separate dev Supabase project, not the one with real data). Fix failures.
+6. [~] **Integration tests** now run in CI on a throwaway Supabase (safe — never the real project). Fix remaining
+       failures. Locally they'd need a separate dev project (⚠ never run them against the real project).
 7. [ ] **Run e2e**: `pnpm test:e2e` (on a dev project with demo data). Password-reset e2e (#9) needs local Mailpit →
        only works with local Supabase (Docker).
 8. [ ] **Run pgTAP + regenerate types** — needs Docker + Supabase CLI (`pnpm add -D supabase`, `pnpm db:start`,
        `pnpm test:db`, `pnpm db:types`).
-8a. [ ] **Fix the pgTAP CI failure** (see §2.4) so CI can go on to the integration and e2e steps.
+8a. [x] **pgTAP fixed in CI** (28 Oct). [~] Keep fixing CI until integration + e2e are green.
 9. [ ] **Upgrade to Node 22** (recommended); the `--experimental-websocket` flag can stay (harmless) or be removed.
 10. [ ] **Open questions** (SPEC §16) — confirm with business: Short Leave factor (0.25), working vs calendar days,
         tax/VAT (none). (Number format and invoice layout are now settled.)
@@ -203,10 +204,10 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
               "Invalid email or password"); set `NEXT_PUBLIC_SITE_URL` = https://attendancepayroll.vercel.app;
               re-set `SUPABASE_SERVICE_ROLE_KEY` — all for Production + Preview (via Vercel API, user-approved)
         - [x] Redeployed → **live login verified**; all 10 main pages load with no errors
-        - [ ] **User action:** give the Vercel GitHub App access to `tannuthakur/Attendance`
-              (github.com/settings/installations → Vercel → Configure → Repository access → add Attendance)
-        - [ ] Then relink the Vercel project from `tannuthakur/attendance_payroll` (old copy, missing the last
-              fixes) to `tannuthakur/Attendance` (decision B) and deploy `main` — Claude can do this via API
+        - [x] GitHub App access to `tannuthakur/Attendance` (granted by user)
+        - [x] **Relinked** the Vercel project from `tannuthakur/attendance_payroll` to `tannuthakur/Attendance`
+              (28 Oct, via API: DELETE link, then POST link) → auto-deploy verified (`df9a6c5` READY + live check).
+              Reference — how it was done
               (approved by user 27 Oct). API call (returns 400 "install the GitHub integration first" until the
               GitHub App has access):
               `POST https://api.vercel.com/v9/projects/prj_iJWoINKFYYiBUQg3mvTbt8C0jswm/link?teamId=team_bZreo23qVKrfMQG46jxgCLeW`
@@ -218,7 +219,7 @@ pnpm db:bundle                                 # regenerate supabase/cloud-setup
               in `next.config.ts` for `/invoices/**`. Deployed with the Vercel CLI (`vercel deploy --prod`, local dir
               linked via `.vercel/`, uploads filtered by `.vercelignore`) → live preview verified: popup opens, PDF
               correct (logo, S2536, 7 lines, USD 16136.36, bank, signature).
-        - Note: until the relink is done, pushes do NOT deploy — use the CLI command in §0.2.
+        - Note: pushes to `main` deploy automatically; the CLI command in §0.2 is only a fallback.
         - [ ] Supabase Auth settings for the Vercel domain → see item 2
         - [ ] Delete the Vercel token (pasted in chat) and remove `VERCEL_TOKEN` from `.env.local`
 
@@ -227,7 +228,7 @@ Done from the earlier list: ~~Company data in Settings~~ (filled from the refere
 
 ---
 
-## 3a. Change requests (user, 27 Oct 2026) — all done
+## 3a. Change requests (user, 27–28 Oct 2026) — all done
 
 ### Round 1 — organisation invoice format + popup preview
 - [x] **Invoice PDF in the organisation's exact format** (reference `INVOICE S2535.pdf`, Sunfocus → Saudi Living):
@@ -258,6 +259,20 @@ Done from the earlier list: ~~Company data in Settings~~ (filled from the refere
 
 ### Round 4 — alignment
 - [x] INVOICE NO / Date / Due Date share the same starting (left) edge; block still sits on the right
+
+### Round 5 — single page + leave dates (28 Oct, reference `INVOICE S2532.pdf`)
+- [x] **Keep the invoice on one page as lines increase**: automatic density in `OrgInvoiceTemplate.tsx`
+      (`densityFor()`): ≤ 6 lines = reference spacing, 7–10 = compact, > 10 = dense (row padding, gaps, 9.5 pt font).
+      Amount column narrowed to 108 pt (as in the reference). Verified renders with live settings: 6, 7, 10 and
+      13 lines all fit on one page incl. bank details + signature; very long invoices still flow to page 2.
+- [x] **Leave dates on employee lines**, e.g. "Payment for … Er. Anmol   (1 Day Leave on 28ᵗʰ Sept)" —
+      `leaveNoteParts()` in `src/lib/pdf/build-data.ts` reads the stored per-day breakdown (`invoice_lines.calc_breakdown`):
+      only leave actually deducted is listed (leave on weekends/holidays is not); grouped by type
+      ("N Day(s) Leave", "Half Day Leave(s)", "Short Leave(s)") and by month ("1ˢᵗ & 2ⁿᵈ Oct"); month names as in
+      the reference ("Sept", "June", "July"). Works in the wizard preview and stored PDFs.
+- [x] Tests: leave-note wording/grouping/omissions, density levels, long-invoice render (444 tests passing)
+- Note: the S2532 reference also shows "Invoice Due Date" under the bank details instead of in the header, and
+  "Currency: USDs" — not changed (S2535 layout kept); ask the user if the due-date position should change.
 
 ---
 
@@ -292,8 +307,16 @@ Done from the earlier list: ~~Company data in Settings~~ (filled from the refere
 - Vercel: `NEXT_PUBLIC_*` values are baked in at build time — after changing them, **redeploy** (not just save).
   Vercel shows a "remove public prefix" warning for `NEXT_PUBLIC_SUPABASE_ANON_KEY` — expected, ignore it.
 - Vercel API writes (env vars, project link) are blocked by Claude Code's permission check unless the user approves.
-- With 7+ invoice lines, the bank-details/signature block moves to page 2 (it is kept together). Reference invoice
-  (6 lines) fits on one page. Tighten spacing if the business wants a single page.
+- **CI failures:** step logs need a GitHub login, but annotations are public:
+  `GET https://api.github.com/repos/tannuthakur/Attendance/commits/<sha>/check-runs` → `output.annotations_url`.
+  Vitest test failures are annotated automatically; `scripts/ci-annotate.sh` adds one summary annotation for the
+  integration/e2e steps. Every push also triggers CI (~10 min) and a Vercel deploy (~2 min).
+- `supabase/config.toml`: `[auth] enable_signup=false` = no public sign-up (wanted); `[auth.email] enable_signup`
+  must stay **true** — false disables email login entirely.
+- PDF density: single page up to ~15 lines (bank details + signature kept together); beyond that the table continues
+  on page 2 with the header row repeated.
+- Leave notes are generated from the stored breakdown, separate from the editable description — if an admin also
+  types leave info into the description, it would appear twice.
 - Employee lines use the job role name ("Frontend", "Backend", "DevOps") — reference uses "Frontend Developer",
   "DevOps Engineer": set *Role on project* on the assignment or rename the job roles in Admin ▸ Roles.
 - PDF font is Helvetica (built-in); the reference uses a DejaVu-like font — layout matches, glyph shapes differ slightly.

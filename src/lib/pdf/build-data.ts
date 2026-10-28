@@ -4,7 +4,7 @@ import Decimal from 'decimal.js';
 import { formatDays, formatNumber } from '@/lib/format';
 import { parseIsoDate } from '@/lib/billing/dates';
 import { amountInWords } from './amount-in-words';
-import type { InvoicePdfData, InvoicePdfStatus, PdfDateParts } from './types';
+import type { InvoicePdfData, InvoicePdfStatus, PdfDateParts, PdfTextPart } from './types';
 
 export type PdfInvoiceInput = Pick<
   Tables<'invoices'>,
@@ -36,7 +36,8 @@ export type PdfLineInput = Pick<
   | 'quantity'
   | 'unit_price'
   | 'amount'
->;
+> &
+  Partial<Pick<Tables<'invoice_lines'>, 'calc_breakdown'>>;
 
 export type PdfSettingsInput = Pick<
   Tables<'app_settings'>,
@@ -53,6 +54,62 @@ const MONTHS_LONG = [
 export function ordinalSuffix(day: number): string {
   if (day % 100 >= 11 && day % 100 <= 13) return 'th';
   return ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[day % 10] ?? 'th';
+}
+
+// Month names as used on the organisation's invoices ("28th Sept").
+const MONTHS_NOTE = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+
+type BreakdownDay = { date: string; status?: string; deduction?: string | number };
+
+// Codes are fixed in the DB (attendance_statuses); labels are editable, so the note uses its own wording.
+const LEAVE_KINDS: Array<{ code: string; one: string; many: string }> = [
+  { code: 'full_day', one: 'Day Leave', many: 'Days Leave' },
+  { code: 'half_day', one: 'Half Day Leave', many: 'Half Day Leaves' },
+  { code: 'short_leave', one: 'Short Leave', many: 'Short Leaves' },
+];
+
+/** Dates grouped by month: ["28", "29"] Sept + ["2"] Oct → "28th & 29th Sept, 2nd Oct" (as superscript parts). */
+function datesParts(dates: string[]): PdfTextPart[] {
+  const byMonth = new Map<string, number[]>();
+  for (const iso of [...dates].sort()) {
+    const d = parseIsoDate(iso);
+    const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+    byMonth.set(key, [...(byMonth.get(key) ?? []), d.getUTCDate()]);
+  }
+  const parts: PdfTextPart[] = [];
+  [...byMonth.entries()].forEach(([key, monthDays], mi) => {
+    if (mi > 0) parts.push({ text: ', ' });
+    monthDays.forEach((day, i) => {
+      if (i > 0) parts.push({ text: i === monthDays.length - 1 ? ' & ' : ', ' });
+      parts.push({ text: String(day) }, { text: ordinalSuffix(day), sup: true });
+    });
+    parts.push({ text: ` ${MONTHS_NOTE[Number(key.split('-')[1])]}` });
+  });
+  return parts;
+}
+
+/**
+ * "(1 Day Leave on 28th Sept)" from a stored line breakdown. Only leave that was actually deducted
+ * (deduction > 0) is listed — leave marked on weekends/holidays is ignored for billing, so it is not shown.
+ */
+export function leaveNoteParts(calcBreakdown: unknown): PdfTextPart[] | undefined {
+  const days = (calcBreakdown as { breakdown?: BreakdownDay[] } | null)?.breakdown;
+  if (!Array.isArray(days)) return undefined;
+  const deducted = days.filter((d) => d.status && Number(d.deduction ?? 0) > 0);
+  const groups: PdfTextPart[][] = [];
+  for (const kind of LEAVE_KINDS) {
+    const dates = deducted.filter((d) => d.status === kind.code).map((d) => d.date);
+    if (!dates.length) continue;
+    groups.push([{ text: `${dates.length} ${dates.length === 1 ? kind.one : kind.many} on ` }, ...datesParts(dates)]);
+  }
+  if (!groups.length) return undefined;
+  const parts: PdfTextPart[] = [{ text: '(' }];
+  groups.forEach((g, i) => {
+    if (i > 0) parts.push({ text: '; ' });
+    parts.push(...g);
+  });
+  parts.push({ text: ')' });
+  return parts;
 }
 
 /** Organisation date format: "27th Oct, 2026". */
@@ -151,6 +208,7 @@ export function buildInvoicePdfData(
             quantityLabel: `${formatDays(l.paid_days)} / ${formatDays(l.working_days)} days`,
             rate: `${formatNumber(l.monthly_cost)} / month`,
             amount: formatLineAmount(l.amount, invoice.currency),
+            leaveNote: leaveNoteParts(l.calc_breakdown),
             type: 'employee' as const,
           }
         : {

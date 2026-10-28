@@ -7,6 +7,7 @@ import {
   formatOrgDate,
   formatTotalAmount,
   invoiceHeading,
+  leaveNoteParts,
   ordinalSuffix,
   type PdfInvoiceInput,
   type PdfLineInput,
@@ -136,6 +137,7 @@ describe('buildInvoicePdfData', () => {
           {
             "amount": "$2750.00",
             "description": "Employee A",
+            "leaveNote": undefined,
             "quantityLabel": "19.25 / 21 days",
             "rate": "3,000.00 / month",
             "role": "Backend Developer",
@@ -145,6 +147,7 @@ describe('buildInvoicePdfData', () => {
           {
             "amount": "$1100.00",
             "description": "Employee B",
+            "leaveNote": undefined,
             "quantityLabel": "11 / 21 days",
             "rate": "2,100.00 / month",
             "role": undefined,
@@ -264,4 +267,72 @@ describe('invoiceHeading', () => {
     expect(invoiceHeading('Invoicing services')).toBe('INVOICE- INVOICING SERVICES');
     expect(invoiceHeading('Invoices for QL')).toBe('INVOICE- INVOICES FOR QL');
   });
+});
+
+describe('leave notes on employee lines', () => {
+  const day = (date: string, status: string, deduction: string) => ({ date, type: 'working', status, deduction });
+  const text = (parts: ReturnType<typeof leaveNoteParts>) => parts?.map((p) => (p.sup ? `^${p.text}` : p.text)).join('');
+
+  it('lists deducted leave by type with superscript ordinals', () => {
+    expect(text(leaveNoteParts({ breakdown: [day('2026-09-28', 'full_day', '1')] }))).toBe('(1 Day Leave on 28^th Sept)');
+    expect(
+      text(
+        leaveNoteParts({
+          breakdown: [
+            day('2026-10-02', 'full_day', '1'),
+            day('2026-10-01', 'full_day', '1'),
+            day('2026-09-29', 'half_day', '0.5'),
+            day('2026-09-15', 'short_leave', '0.25'),
+            day('2026-09-16', 'short_leave', '0.25'),
+          ],
+        }),
+      ),
+    ).toBe('(2 Days Leave on 1^st & 2^nd Oct; 1 Half Day Leave on 29^th Sept; 2 Short Leaves on 15^th & 16^th Sept)');
+  });
+
+  it('groups dates by month and joins three or more with commas', () => {
+    expect(
+      text(leaveNoteParts({ breakdown: ['2026-09-21', '2026-09-22', '2026-09-23', '2026-10-03'].map((d) => day(d, 'full_day', '1')) })),
+    ).toBe('(4 Days Leave on 21^st, 22^nd & 23^rd Sept, 3^rd Oct)');
+    expect(text(leaveNoteParts({ breakdown: [day('2026-06-11', 'half_day', '0.5'), day('2026-07-12', 'half_day', '0.5')] }))).toBe(
+      '(2 Half Day Leaves on 11^th June, 12^th July)',
+    );
+  });
+
+  it('omits leave that was not deducted (weekends / holidays), presence statuses and missing data', () => {
+    expect(leaveNoteParts({ breakdown: [day('2026-09-26', 'full_day', '0'), day('2026-09-27', 'present', '0'), day('2026-09-28', 'wfh', '0')] })).toBeUndefined();
+    expect(leaveNoteParts(null)).toBeUndefined();
+    expect(leaveNoteParts({ segments: [] })).toBeUndefined();
+  });
+
+  it('adds the note to employee lines only', () => {
+    const data = buildInvoicePdfData(
+      invoice,
+      [
+        { ...lines[0], calc_breakdown: { breakdown: [day('2026-10-20', 'full_day', '1')] } },
+        { ...lines[2], calc_breakdown: { breakdown: [day('2026-10-20', 'full_day', '1')] } },
+      ],
+      settings,
+    );
+    expect(data.lines.find((l) => l.type === 'employee')?.leaveNote).toBeDefined();
+    expect(data.lines.find((l) => l.type === 'custom')?.leaveNote).toBeUndefined();
+  });
+});
+
+describe('page density', () => {
+  it('keeps the reference layout up to 6 lines and tightens after', async () => {
+    const { densityFor } = await import('@/lib/pdf/templates/OrgInvoiceTemplate');
+    expect([1, 6, 7, 10, 11, 30].map(densityFor)).toEqual(['normal', 'normal', 'compact', 'compact', 'dense', 'dense']);
+  });
+
+  it('renders long invoices with leave notes', async () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      ...lines[0],
+      sort_order: i,
+      calc_breakdown: i % 3 === 0 ? { breakdown: [day('2026-10-20', 'half_day', '0.5')] } : null,
+    }));
+    const buf = await renderInvoicePdf(buildInvoicePdfData(invoice, many, settings));
+    expect(buf.subarray(0, 4).toString()).toBe('%PDF');
+  });
+  const day = (date: string, status: string, deduction: string) => ({ date, type: 'working', status, deduction });
 });

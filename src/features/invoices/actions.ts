@@ -163,6 +163,7 @@ export const previewInvoicePdf = adminAction(generateInvoiceSchema, async (input
       quantity: Number(l.quantity),
       unit_price: Number(l.unit_price),
       amount: Number(l.amount),
+      calc_breakdown: l.calc_breakdown ?? null,
     })),
     settings,
     await loadLogoDataUri(supabase, settings.logo_path),

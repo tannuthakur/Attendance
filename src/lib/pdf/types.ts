@@ -3,6 +3,9 @@
 
 export type InvoicePdfStatus = 'issued' | 'paid' | 'void';
 
+/** Text run that a template may render as superscript (ordinal suffixes like "th"). */
+export type PdfTextPart = { text: string; sup?: boolean };
+
 /** "8TH OCTOBER 2026" split so templates can superscript the ordinal suffix. */
 export type PdfDateParts = { day: string; suffix: string; month: string; year: string };
 
@@ -46,6 +49,8 @@ export type InvoicePdfData = {
     rate: string;
     /** e.g. "$2500.00" (currency symbol, no thousands separator). */
     amount: string;
+    /** Employee lines with deducted leave: "(1 Day Leave on 28th Sept)" as parts ("th" superscript). */
+    leaveNote?: PdfTextPart[];
     type: 'employee' | 'custom';
   }>;
   /** subtotal/total e.g. "USD 15000.00". */

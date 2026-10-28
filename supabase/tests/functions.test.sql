@@ -37,10 +37,11 @@ select is((select status::text from public.projects where id = 'aaaaaaaa-aaaa-4a
 select is(public.project_status_on('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-10-11')::text, 'paused', 'status on a date from history');
 
 -- Invoice numbering
+-- Far-future years: the seed data (loaded by `supabase db reset` in CI) already uses the 2026 scope.
 update public.app_settings set invoice_number_format = 'TST-{YYYY}-{SEQ:3}' where id = 1;
-select is(public.next_invoice_number('2026-05-01'), 'TST-2026-001', 'first number in scope');
-select is(public.next_invoice_number('2026-06-01'), 'TST-2026-002', 'sequential');
-select is(public.next_invoice_number('2027-01-01'), 'TST-2027-001', 'new scope per year');
+select is(public.next_invoice_number('2091-05-01'), 'TST-2091-001', 'first number in scope');
+select is(public.next_invoice_number('2091-06-01'), 'TST-2091-002', 'sequential');
+select is(public.next_invoice_number('2092-01-01'), 'TST-2092-001', 'new scope per year');
 select is(public.format_invoice_number('{PREFIX}/{YY}{MM}/{SEQ:2}', 'ACME', '2026-10-27', 123), 'ACME/2610/123', 'format tokens');
 
 -- Bulk attendance is transactional and idempotent

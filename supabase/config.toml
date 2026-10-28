@@ -46,7 +46,9 @@ email_sent = 30
 sign_in_sign_ups = 60
 
 [auth.email]
-enable_signup = false
+# NOTE: in this section `enable_signup` turns the whole EMAIL PROVIDER on/off ("Email logins are disabled"
+# when false). Public sign-up is disabled by `[auth] enable_signup = false` above; admins still create users.
+enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 max_frequency = "1s"

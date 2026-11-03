@@ -14,7 +14,7 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
 ### 0.1 Start here (in this order)
 0. ~~Change request 7 — choose the invoice number while generating~~ — **DONE & live 3 Nov** (§3d).
 1. ~~Fix the CI end-to-end tests~~ — **DONE 3 Nov**: whole pipeline green incl. Playwright e2e (§3c).
-1a. **Change request 8 — download invoice as PDF / Word / image** (§3e): built & tested locally; check CI + live.
+1a. **Change request 8 — download invoice as PDF / Word / image** (§3e): live since `1d34ad4`; user to try it.
 2. **Open questions for the user** (ask, then record the answer):
    - **Role names on invoice lines:** lines print the job role ("Frontend", "Backend", "DevOps"); references use
      "Frontend Developer", "Backend Developer", "DevOps Engineer". Options: rename job roles (Admin ▸ Roles),
@@ -385,7 +385,11 @@ Plan / status:
       package.json and native binary are force-traced for `/invoices/**` (verified in the build's `.nft.json`).
 - [x] Tests: `tests/unit/invoice-export.test.ts` (5), download-menu component test, e2e `02` fetches docx + png.
       486 unit/component tests pass; typecheck, lint, build clean.
-- [ ] CI green on the push · [ ] live check on Vercel (Word + PNG download of a real invoice).
+- [x] Fixes on the way: PNG failed in the production build (webpack makes `createRequire` undefined → fonts dir now
+      `process.cwd()/node_modules/pdfjs-dist/standard_fonts`); Vercel rejected the function package because
+      `next.config.ts` force-traced pnpm's `@napi-rs` folders (symlinked dirs) — removed, the binary is traced anyway.
+- [x] CI green (e2e downloads docx + png from a production build) · Vercel `1d34ad4` READY.
+- [ ] User: live check — Word + image download of a real invoice.
 
 ## 3c. CI end-to-end tests (first run 28 Oct, commit `a1a458f`)
 - [x] CI pipeline green through lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration

@@ -14,10 +14,16 @@ const PDF_RUNTIME_FILES = [
   './node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/package.json',
   './node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/standard-fonts/**/*',
   './node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/data/**/*',
+  // PNG export (src/lib/pdf/raster.ts): pdfjs loads its worker and standard fonts at runtime, and
+  // @napi-rs/canvas loads a platform-specific native binary — neither is visible to the file tracer.
+  './node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/package.json',
+  './node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/legacy/build/**/*',
+  './node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/standard_fonts/**/*',
+  './node_modules/.pnpm/@napi-rs+canvas*/node_modules/@napi-rs/**/*',
 ];
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['@react-pdf/renderer'],
+  serverExternalPackages: ['@react-pdf/renderer', 'pdfjs-dist', '@napi-rs/canvas'],
   // pdfkit (used by @react-pdf) loads its built-in fonts via package "imports" (`#standard-fonts/Helvetica`)
   // at runtime, which the file tracer can't follow — without this, PDF rendering fails on Vercel with
   // "Cannot find module …/pdfkit/js/standard-fonts/Helvetica.cjs". PDFs are rendered only under /invoices.

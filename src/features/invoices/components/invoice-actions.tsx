@@ -1,10 +1,11 @@
 'use client';
 import { PdfPreviewDialog } from '@/components/pdf-preview-dialog';
+import { DownloadMenu, invoiceDownloads } from '@/components/download-menu';
 import { useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Ban, CheckCircle2, Download, Eye, Hash, Loader2, Pencil, RefreshCw, Trash2, Undo2 } from 'lucide-react';
+import { Ban, CheckCircle2, Eye, Hash, Loader2, Pencil, RefreshCw, Trash2, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -84,23 +85,21 @@ export function InvoiceActions({ invoice, today }: { invoice: InvoiceActionsInvo
   const isAdmin = useIsAdmin();
   const allowed = allowedInvoiceActions(invoice.status);
   const pdfHref = `/invoices/${invoice.id}/pdf`;
+  const downloads = invoiceDownloads(invoice.id);
   return (
     <>
       <PdfPreviewDialog
         title={`Invoice ${invoice.invoice_number}`}
         src={pdfHref}
-        downloadHref={`${pdfHref}?download=1`}
+        downloadHref={downloads.primary.href}
+        moreDownloads={downloads.more}
         trigger={
           <Button variant="outline" size="sm">
             <Eye aria-hidden /> View PDF
           </Button>
         }
       />
-      <Button variant="outline" size="sm" asChild>
-        <a href={`${pdfHref}?download=1`} download>
-          <Download aria-hidden /> Download PDF
-        </a>
-      </Button>
+      <DownloadMenu variant="outline" {...downloads} />
       {isAdmin && (
         <>
           {/* SPEC-NOTE: edit actions stay visible but disabled when locked (§12.5 e2e 1: "edit number button disabled"). */}

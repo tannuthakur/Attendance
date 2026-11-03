@@ -26,4 +26,15 @@ test('project without employees → invoice with custom lines only', async ({ pa
   expect(res.headers()['content-type']).toBe('application/pdf');
   const download = await page.request.get(page.url() + '/pdf?download=1');
   expect(download.headers()['content-disposition']).toContain(`attachment; filename="`);
+
+  // …and as Word / PNG.
+  const docx = await page.request.get(page.url() + '/pdf?format=docx');
+  expect(docx.headers()['content-type']).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  expect(docx.headers()['content-disposition']).toMatch(/^attachment; filename=".+\.docx"$/);
+  expect((await docx.body()).subarray(0, 2).toString()).toBe('PK');
+  const png = await page.request.get(page.url() + '/pdf?format=png&download=1');
+  expect(png.headers()['content-type']).toBe('image/png');
+  expect(png.headers()['content-disposition']).toMatch(/^attachment; filename=".+\.png"$/);
+  expect((await png.body()).subarray(1, 4).toString()).toBe('PNG');
+  expect((await page.request.get(page.url() + '/pdf?format=xls')).status()).toBe(400);
 });

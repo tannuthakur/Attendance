@@ -14,6 +14,7 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
 ### 0.1 Start here (in this order)
 0. ~~Change request 7 — choose the invoice number while generating~~ — **DONE & live 3 Nov** (§3d).
 1. ~~Fix the CI end-to-end tests~~ — **DONE 3 Nov**: whole pipeline green incl. Playwright e2e (§3c).
+1a. **Change request 8 — download invoice as PDF / Word / image** (§3e): built & tested locally; check CI + live.
 2. **Open questions for the user** (ask, then record the answer):
    - **Role names on invoice lines:** lines print the job role ("Frontend", "Backend", "DevOps"); references use
      "Frontend Developer", "Backend Developer", "DevOps Engineer". Options: rename job roles (Admin ▸ Roles),
@@ -364,6 +365,27 @@ Plan / status:
       new function; nothing saved, sequences unchanged).
 - [x] Pushed `6c6c74a` → Vercel READY. **Live check:** wizard Details shows "Invoice number" = S2537 (next), typing
       "S2540-TEST" shows the custom-number hint and the Preview PDF prints S2540-TEST. Nothing generated.
+
+## 3e. Change request 8 — download the invoice in different formats (user, 3 Nov 2026)
+
+> "I want the options for downloading the invoice in different formats eg: DOC, PDF, Image."
+> Defaults chosen (no DB change): **Word = .docx** (editable), **Image = PNG** (exact render of the PDF).
+
+- [x] Route `/invoices/[id]/pdf?format=pdf|docx|png` (default pdf; unknown → 400). Word is always an attachment;
+      PNG inline unless `download=1`. Every download logs the existing `pdf_downloaded` event.
+- [x] `src/lib/pdf/raster.ts` — PDF → PNG with `pdfjs-dist@5.6.205` (last version supporting Node 20) +
+      `@napi-rs/canvas` 0.1.x (the version pdfjs expects); 2× scale (A4 = 1191×1684 px); multi-page invoices are
+      stacked into one image. Loaded lazily so a canvas problem can never break the PDF download.
+- [x] `src/lib/pdf/docx.ts` — Word file from the same `InvoicePdfData` with the same layout (page frame, heading,
+      logo, company/invoice blocks, shaded PARTICULARS table, leave notes with superscripts, bank details,
+      signature, footer; PAID/VOID marked). Font Arial (≈ the PDF's Helvetica). Checked visually via LibreOffice.
+- [x] UI: split button **Download PDF ▾** → PDF / Word (.docx) / Image (.png), on the invoice page and in the
+      preview popup (`src/components/download-menu.tsx`). Wizard preview (unsaved invoice) stays PDF-only.
+- [x] `next.config.ts`: `pdfjs-dist` + `@napi-rs/canvas` are server externals; their worker, standard fonts,
+      package.json and native binary are force-traced for `/invoices/**` (verified in the build's `.nft.json`).
+- [x] Tests: `tests/unit/invoice-export.test.ts` (5), download-menu component test, e2e `02` fetches docx + png.
+      486 unit/component tests pass; typecheck, lint, build clean.
+- [ ] CI green on the push · [ ] live check on Vercel (Word + PNG download of a real invoice).
 
 ## 3c. CI end-to-end tests (first run 28 Oct, commit `a1a458f`)
 - [x] CI pipeline green through lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration

@@ -46,6 +46,23 @@ describe('InvoiceActions', () => {
     nav.push.mockReset();
   });
 
+  it('offers Word and image downloads next to Download PDF (page and preview)', async () => {
+    render('issued', VIEWER);
+    const formats = [
+      [/pdf \(\.pdf\)/i, `/invoices/${ID}/pdf?download=1`],
+      [/word \(\.docx\)/i, `/invoices/${ID}/pdf?format=docx&download=1`],
+      [/image \(\.png\)/i, `/invoices/${ID}/pdf?format=png&download=1`],
+    ] as const;
+    await userEvent.click(btn(/more download formats/i)!);
+    for (const [name, href] of formats) expect(await screen.findByRole('menuitem', { name })).toHaveAttribute('href', href);
+    await userEvent.keyboard('{Escape}');
+
+    await userEvent.click(btn(/view pdf/i)!);
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /more download formats/i }));
+    for (const [name, href] of formats) expect(await screen.findByRole('menuitem', { name })).toHaveAttribute('href', href);
+  });
+
   it('viewers only get View / Download PDF', async () => {
     render('issued', VIEWER);
     expect(link(/download pdf/i)).toHaveAttribute('href', `/invoices/${ID}/pdf?download=1`);

@@ -1,7 +1,8 @@
 'use client';
 import { type ReactNode } from 'react';
-import { Download, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DownloadMenu, type DownloadOption } from '@/components/download-menu';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 type Props = {
@@ -12,6 +13,8 @@ type Props = {
   /** Download link: a route with `?download=1`, or a blob URL together with `downloadName`. */
   downloadHref: string | null;
   downloadName?: string;
+  /** Other download formats (Word, image…) offered next to Download PDF. */
+  moreDownloads?: DownloadOption[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   trigger?: ReactNode;
@@ -25,6 +28,7 @@ export function PdfPreviewDialog({
   src,
   downloadHref,
   downloadName,
+  moreDownloads,
   open,
   onOpenChange,
   trigger,
@@ -48,11 +52,7 @@ export function PdfPreviewDialog({
               </Button>
             )}
             {downloadHref && (
-              <Button size="sm" asChild>
-                <a href={downloadHref} download={downloadName ?? true}>
-                  <Download aria-hidden /> Download PDF
-                </a>
-              </Button>
+              <DownloadMenu primary={{ label: 'Download PDF', href: downloadHref, filename: downloadName }} more={moreDownloads} />
             )}
           </div>
         </DialogHeader>

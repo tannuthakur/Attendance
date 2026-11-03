@@ -41,10 +41,10 @@ jobs:
           version: latest
 
       - name: Start Supabase
-        run: supabase start
+        run: scripts/ci-annotate.sh "Start Supabase" supabase start
 
       - name: Reset database (migrations + seed)
-        run: supabase db reset
+        run: scripts/ci-annotate.sh "Reset database" supabase db reset
 
       - name: Export Supabase env
         run: |

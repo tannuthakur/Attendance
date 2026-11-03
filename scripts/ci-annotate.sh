@@ -8,7 +8,7 @@ log="$(mktemp)"
 "$@" 2>&1 | tee "$log"
 status=${PIPESTATUS[0]}
 if [ "$status" -ne 0 ]; then
-  summary=$(grep -E "FAIL|Error|error:|✗|×|Expected|Received|Timed out|Cannot|Unhandled|failed" "$log" \
+  summary=$(grep -iE "FAIL|Error|error:|✗|×|Expected|Received|Timed out|Cannot|Unhandled|failed|invalid|unknown|unsupported|deprecated" "$log" \
     | grep -vE "^\s*at |node_modules" | head -60 | cut -c1-300)
   [ -z "$summary" ] && summary=$(tail -40 "$log" | cut -c1-300)
   # Encode for workflow commands: %, CR, LF

@@ -38,7 +38,8 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: "latest" needs a GitHub API call (rate-limited on shared runners) and v3 is a breaking major.
+          version: 2.122.1
 
       - name: Start Supabase
         run: scripts/ci-annotate.sh "Start Supabase" supabase start

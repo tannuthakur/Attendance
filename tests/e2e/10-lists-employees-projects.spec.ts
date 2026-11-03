@@ -35,6 +35,7 @@ test.describe('employees & projects lists keep state in the URL (§12.5 #10)', (
 
   test('projects: filter + sort survive a reload', async ({ page }) => {
     await page.goto('/projects');
+    await page.waitForLoadState('networkidle'); // a click before hydration opens nothing
     await page.getByRole('button', { name: /^Status/ }).click();
     await page.getByRole('option', { name: /Active/ }).click();
     await page.keyboard.press('Escape');

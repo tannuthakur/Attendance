@@ -77,7 +77,7 @@ test('admin: job role → employees → project → assign → attendance → ho
   await dialog.getByLabel(/^Name/).fill(`${tag} Holiday`);
   await dialog.getByRole('textbox', { name: /^Date/ }).fill('2026-09-20');
   await dialog.getByLabel('Selected projects').check();
-  await dialog.getByLabel('Projects').click();
+  await dialog.getByRole('combobox', { name: 'Projects' }).click();
   await page.getByRole('option', { name: new RegExp(projectName) }).click();
   await page.keyboard.press('Escape');
   await dialog.getByRole('button', { name: 'Create holiday' }).click();

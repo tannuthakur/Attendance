@@ -1,20 +1,24 @@
 'use client';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useTransition } from 'react';
-import { serializeListParams, type FilterDef, type ListConfig, type ListParams } from '@/lib/list-params';
+import { mergeListParams, type FilterDef, type ListConfig, type ListParams } from '@/lib/list-params';
 
-/** Pushes list state into the URL; the server page re-renders with new data. */
+/**
+ * Pushes list state into the URL; the server page re-renders with new data. Parameters the list doesn't own
+ * (e.g. `view=list` on /attendance) are kept, so filtering never switches the page to another view.
+ */
 export function useListNavigation<F extends Record<string, FilterDef>>(params: ListParams<F>, config: ListConfig<F>) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   const navigate = useCallback(
     (next: ListParams<F>) => {
-      const qs = serializeListParams(next, config).toString();
+      const qs = mergeListParams(new URLSearchParams(searchParams.toString()), next, config).toString();
       startTransition(() => router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
     },
-    [config, pathname, router],
+    [config, pathname, router, searchParams],
   );
 
   const update = useCallback(

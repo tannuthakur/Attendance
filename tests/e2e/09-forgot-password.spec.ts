@@ -15,7 +15,7 @@ test.describe.serial('forgot password', () => {
     await page.getByRole('button', { name: 'Add user' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Full name').fill('E2E Reset');
-    await dialog.getByLabel('Email').fill(EMAIL);
+    await dialog.getByLabel('Email', { exact: true }).fill(EMAIL);
     await dialog.getByRole('radio', { name: 'Set temporary password' }).click();
     await dialog.getByLabel('Temporary password').fill(TEMP_PASSWORD);
     await dialog.getByRole('button', { name: 'Create user' }).click();
@@ -44,7 +44,7 @@ test.describe.serial('forgot password', () => {
     await page.getByLabel('Email').fill(EMAIL);
     await page.getByLabel('Password').fill(TEMP_PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('alert')).toHaveText('Invalid email or password');
+    await expect(page.getByRole('alert').filter({ hasText: 'Invalid email or password' })).toBeVisible();
 
     await page.getByLabel('Password').fill(NEW_PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();

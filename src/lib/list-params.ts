@@ -174,3 +174,30 @@ export function pageRange(params: { page: number; pageSize: number }): { from: n
 export function escapeSearch(q: string): string {
   return q.replace(/[%_\\]/g, (c) => `\\${c}`).replace(/[,()"]/g, ' ');
 }
+
+/** URL keys owned by a list (search, sort, paging and every filter key incl. range suffixes). */
+export function listParamKeys(config: ListConfig): Set<string> {
+  const keys = new Set(['q', 'sort', 'page', 'size']);
+  for (const [key, def] of Object.entries(config.filters)) {
+    if (def.type === 'dateRange') keys.add(`${key}_from`).add(`${key}_to`);
+    else if (def.type === 'numberRange') keys.add(`${key}_min`).add(`${key}_max`);
+    else keys.add(key);
+  }
+  return keys;
+}
+
+/**
+ * Serialized list state + every other parameter already in the URL (e.g. `view=list`, `tab=…`, `month=…`),
+ * so changing a filter or sort never drops the page's own state. Foreign keys come first, in their order.
+ */
+export function mergeListParams<F extends Record<string, FilterDef>>(
+  current: URLSearchParams,
+  next: ListParams<F>,
+  config: ListConfig<F>,
+): URLSearchParams {
+  const owned = listParamKeys(config);
+  const out = new URLSearchParams();
+  for (const [k, v] of current) if (!owned.has(k)) out.append(k, v);
+  for (const [k, v] of serializeListParams(next, config)) out.append(k, v);
+  return out;
+}

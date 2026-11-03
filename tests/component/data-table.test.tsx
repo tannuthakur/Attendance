@@ -63,6 +63,15 @@ describe('DataTable', () => {
     expect(nav.push).toHaveBeenLastCalledWith('/employees', { scroll: false });
   });
 
+  it('keeps page parameters the list does not own (e.g. ?view=list)', async () => {
+    setup('view=list&page=2');
+    await userEvent.click(screen.getByRole('button', { name: /sort by name/i }));
+    expect(nav.push).toHaveBeenLastCalledWith('/employees?view=list&sort=name.desc&page=2', { scroll: false });
+    await userEvent.click(screen.getByRole('button', { name: /^status/i }));
+    await userEvent.click(await screen.findByText('Off-role'));
+    expect(nav.push).toHaveBeenLastCalledWith('/employees?view=list&status=off_role', { scroll: false });
+  });
+
   it('selecting a filter option resets to page 1', async () => {
     setup('page=3');
     await userEvent.click(screen.getByRole('button', { name: /^status/i }));

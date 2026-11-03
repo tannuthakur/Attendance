@@ -95,3 +95,19 @@ describe('list-params', () => {
     expect(escapeSearch('50%_off, (a)')).toBe('50\\%\\_off   a ');
   });
 });
+
+describe('keeping foreign URL params (attendance ?view=list bug, 3 Nov)', () => {
+  it('lists the keys a list owns', async () => {
+    const { listParamKeys } = await import('@/lib/list-params');
+    expect([...listParamKeys(config)].sort()).toEqual(
+      ['amount_max', 'amount_min', 'bench', 'page', 'q', 'role', 'size', 'sort', 'start_from', 'start_to', 'status'].sort(),
+    );
+  });
+  it('keeps view/tab/month and replaces only list-owned keys', async () => {
+    const { mergeListParams } = await import('@/lib/list-params');
+    const current = new URLSearchParams('view=list&status=a&page=3&tab=attendance&month=2026-10');
+    const next = parseListParams({ status: 'b', sort: 'code.asc' }, config);
+    expect(mergeListParams(current, next, config).toString()).toBe('view=list&tab=attendance&month=2026-10&status=b&sort=code.asc');
+    expect(mergeListParams(new URLSearchParams(), parseListParams({}, config), config).toString()).toBe('');
+  });
+});

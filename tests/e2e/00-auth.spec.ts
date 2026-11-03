@@ -12,7 +12,7 @@ test.describe('authentication', () => {
     await page.getByLabel('Email').fill(USERS.admin.email);
     await page.getByLabel('Password').fill('wrong-password-1');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('alert')).toHaveText('Invalid email or password');
+    await expect(page.getByRole('alert').filter({ hasText: 'Invalid email or password' })).toBeVisible();
   });
 
   test('admin can sign in and out', async ({ page }) => {

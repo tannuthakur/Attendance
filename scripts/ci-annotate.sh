@@ -10,7 +10,10 @@ status=${PIPESTATUS[0]}
 if [ "$status" -ne 0 ]; then
   summary=$(grep -iE "FAIL|Error|error:|✗|×|Expected|Received|Timed out|Cannot|Unhandled|failed|invalid|unknown|unsupported|deprecated" "$log" \
     | grep -vE "^\s*at |node_modules" | head -60 | cut -c1-300)
-  [ -z "$summary" ] && summary=$(tail -40 "$log" | cut -c1-300)
+  # Always add the tail: the real cause is often just before a generic "try again" line.
+  summary="$summary
+--- last 30 lines ---
+$(tail -30 "$log" | cut -c1-300)"
   # Encode for workflow commands: %, CR, LF
   enc=$(printf '%s' "$summary" | sed -e 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {gsub(/\r/,"%0D"); print}')
   echo "::error title=${title} failed::${enc}"

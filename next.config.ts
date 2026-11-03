@@ -14,12 +14,12 @@ const PDF_RUNTIME_FILES = [
   './node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/package.json',
   './node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/standard-fonts/**/*',
   './node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/data/**/*',
-  // PNG export (src/lib/pdf/raster.ts): pdfjs loads its worker and standard fonts at runtime, and
-  // @napi-rs/canvas loads a platform-specific native binary — neither is visible to the file tracer.
+  // PNG export (src/lib/pdf/raster.ts): pdfjs loads its worker and standard fonts at runtime, which the
+  // tracer can't see. (@napi-rs/canvas's native binary IS traced automatically; globbing pnpm's
+  // @napi-rs folders pulls in symlinked dirs, which Vercel rejects as an invalid function package.)
   './node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/package.json',
   './node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/legacy/build/**/*',
   './node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/standard_fonts/**/*',
-  './node_modules/.pnpm/@napi-rs+canvas*/node_modules/@napi-rs/**/*',
 ];
 
 const nextConfig: NextConfig = {

@@ -17,7 +17,7 @@ test.describe.serial('forgot password', () => {
     await dialog.getByLabel('Full name').fill('E2E Reset');
     await dialog.getByLabel('Email', { exact: true }).fill(EMAIL);
     await dialog.getByRole('radio', { name: 'Set temporary password' }).click();
-    await dialog.getByLabel('Temporary password').fill(TEMP_PASSWORD);
+    await dialog.getByRole('textbox', { name: 'Temporary password' }).fill(TEMP_PASSWORD);
     await dialog.getByRole('button', { name: 'Create user' }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('cell', { name: EMAIL })).toBeVisible();

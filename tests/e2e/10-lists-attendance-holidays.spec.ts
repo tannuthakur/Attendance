@@ -49,8 +49,8 @@ test('holidays list: scope filter + name sort persist after reload', async ({ pa
   await page.reload();
   await expect(page).toHaveURL(/scope=all/);
   await expect(page.getByText('Scope: All projects')).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Diwali' })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Saudi National Day' })).toHaveCount(0);
+  await expect(page.getByRole('cell', { name: 'Diwali', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Saudi National Day', exact: true })).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Calendar' }).click();
   await expect(page).toHaveURL(/view=calendar&mode=year/);

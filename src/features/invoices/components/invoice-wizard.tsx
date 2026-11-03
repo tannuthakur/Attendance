@@ -27,7 +27,7 @@ import {
   type WizardLine,
 } from '../lines';
 import type { WizardData } from '../queries';
-import type { InvoiceType } from '../schemas';
+import { INVOICE_NUMBER_RE, type InvoiceType } from '../schemas';
 import { LinesEditor } from './lines-editor';
 
 type Step = 1 | 2 | 3;
@@ -77,6 +77,13 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
   const [title, setTitle] = useState('');
   const [invoiceTo, setInvoiceTo] = useState(project?.invoice_to ?? '');
   const [notes, setNotes] = useState('');
+  // Prefilled with the next number in the sequence; unchanged/empty = assigned automatically on Generate.
+  const [invoiceNumber, setInvoiceNumber] = useState(data.nextNumber);
+  const chosenNumber = invoiceNumber.trim() === data.nextNumber ? '' : invoiceNumber.trim();
+  const numberError =
+    chosenNumber && (!INVOICE_NUMBER_RE.test(chosenNumber) || chosenNumber.length > 60)
+      ? 'Use letters, digits and - _ / . only (max 60 characters)'
+      : null;
   const [error, setError] = useState<string>();
 
   const [computing, startCompute] = useTransition();
@@ -145,6 +152,7 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
     return {
       projectId: project!.id,
       invoiceType,
+      invoiceNumber: chosenNumber,
       // Task invoices: the server derives the period from the tasks (or the issue date).
       periodStart: isTask ? issueDate : period.start,
       periodEnd: isTask ? issueDate : period.end,
@@ -189,7 +197,8 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
       }
     });
 
-  const detailsValid = !!issueDate && !!dueDate && dueDate >= issueDate && title.trim() !== '' && invoiceTo.trim() !== '';
+  const detailsValid =
+    !!issueDate && !!dueDate && dueDate >= issueDate && title.trim() !== '' && invoiceTo.trim() !== '' && !numberError;
 
   return (
     <div className="space-y-6">
@@ -437,6 +446,24 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid gap-2 sm:max-w-xs">
+              <Label htmlFor="wizard-number">Invoice number</Label>
+              <Input
+                id="wizard-number"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                aria-invalid={!!numberError}
+                aria-describedby="wizard-number-hint"
+                autoComplete="off"
+                className="font-mono"
+              />
+              <p id="wizard-number-hint" className={cn('text-xs', numberError ? 'text-destructive' : 'text-muted-foreground')}>
+                {numberError ??
+                  (chosenNumber
+                    ? `Custom number — must not be used by any other invoice. The sequence (next ${data.nextNumber}) is not changed.`
+                    : 'Next number in the sequence, assigned when you click Generate. Type a different one if needed.')}
+              </p>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:max-w-xl">
               <div className="grid gap-2">
                 <Label htmlFor="wizard-issue">Issue date</Label>

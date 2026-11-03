@@ -24,7 +24,8 @@
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local > src/types/database.ts",
     "seed:admin": "NODE_OPTIONS=--experimental-websocket tsx scripts/seed-admin.ts",
-    "db:bundle": "node scripts/build-cloud-setup.mjs"
+    "db:bundle": "node scripts/build-cloud-setup.mjs",
+    "db:check": "node scripts/db-check/run.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -57,6 +58,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
     "@eslint/eslintrc": "^3.3.7",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",

@@ -140,3 +140,21 @@ describe('projects without a cycle elsewhere', () => {
     expect(buildInvoicePdfData(invoice, [], settings).invoice.showPeriod).toBe(true);
   });
 });
+
+describe('chosen invoice number (change request 7)', () => {
+  const base = {
+    projectId: '6f1c2b0e-9a4d-4c8e-8f3a-1b2c3d4e5f60', invoiceType: 'task' as const, periodStart: '2026-11-03', periodEnd: '2026-11-03',
+    issueDate: '2026-11-03', dueDate: '2026-11-18', invoiceTitle: 'T', invoiceTo: 'C',
+    lines: [{ kind: 'custom' as const, description: 'x', quantity: '1', unitPrice: '10' }],
+  };
+  it('defaults to automatic numbering', () => {
+    expect(generateInvoiceSchema.parse(base).invoiceNumber).toBe('');
+  });
+  it('accepts a valid custom number and trims it', () => {
+    expect(generateInvoiceSchema.parse({ ...base, invoiceNumber: ' S2540 ' }).invoiceNumber).toBe('S2540');
+    expect(generateInvoiceSchema.parse({ ...base, invoiceNumber: 'INV/2026-07.A' }).invoiceNumber).toBe('INV/2026-07.A');
+  });
+  it.each(['S 2540', '-S1', 'S#1', 'X'.repeat(61)])('rejects %s', (n) => {
+    expect(generateInvoiceSchema.safeParse({ ...base, invoiceNumber: n }).success).toBe(false);
+  });
+});

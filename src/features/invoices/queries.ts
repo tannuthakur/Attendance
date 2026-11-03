@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { Dec, listCycles, money, type Cycle } from '@/lib/billing';
 import { EXPORT_LIMIT } from '@/lib/csv-response';
 import { escapeSearch, pageRange, type ListParams } from '@/lib/list-params';
-import { getProjectOptions, getToday } from '@/features/lookups/queries';
+import { getProjectOptions, getSettings, getToday } from '@/features/lookups/queries';
+import { peekNextInvoiceNumber } from './service';
 import type { Tables, Views } from '@/types/database';
 import { INVOICE_SORT_COLUMNS, type InvoiceListConfig } from './list-config';
 import { pickDefaultCycle, type InvoicePeriodRef } from './lines';
@@ -220,6 +221,8 @@ export type WizardData = {
   tasks: WizardTask[];
   /** Requested invoice type (?type=task|cycle); the wizard falls back to what the project supports. */
   requestedType: 'cycle' | 'task' | null;
+  /** Suggested number (next in the sequence for today; not reserved). Editable in the wizard. */
+  nextNumber: string;
 };
 
 export async function getWizardData(projectId?: string, cycleStart?: string, type?: string): Promise<WizardData> {
@@ -234,8 +237,9 @@ export async function getWizardData(projectId?: string, cycleStart?: string, typ
   const projects = data ?? [];
   const project = projects.find((p) => p.id === projectId) ?? null;
   const requestedType = type === 'task' || type === 'cycle' ? type : null;
+  const nextNumber = await peekNextInvoiceNumber(supabase, today, await getSettings());
   if (!project) {
-    return { today, projects, project: null, cycles: [], invoices: [], defaultCycle: null, tasks: [], requestedType };
+    return { today, projects, project: null, cycles: [], invoices: [], defaultCycle: null, tasks: [], requestedType, nextNumber };
   }
 
   const firstStart = project.billing_cycle_start_date;
@@ -261,6 +265,7 @@ export async function getWizardData(projectId?: string, cycleStart?: string, typ
       status: t.status,
     })),
     requestedType,
+    nextNumber,
   };
 }
 

@@ -75,6 +75,15 @@ select throws_ok($$ delete from public.project_tasks where id = 'cccccccc-cccc-4
 select lives_ok($$ select public.invoice_action((select id from public.invoices where project_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'), 'void', '{"reason":"test"}') $$, 'void task invoice');
 select is_empty($$ select 1 from public.project_tasks where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' and invoice_id is not null $$, 'voiding frees the task');
 
+-- Chosen invoice number (change request 7): used when given, unique incl. deleted invoices, sequence untouched
+select is((public.save_invoice('{"invoice_number":"FN-CHOSEN-1","project_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","period_start":"2092-02-01","period_end":"2092-02-28","issue_date":"2092-03-01","due_date":"2092-03-15","currency":"USD","client_name":"c","invoice_to":"c","invoice_title":"t","lines":[{"line_type":"custom","description":"x","amount":"10"}]}')).invoice_number,
+  'FN-CHOSEN-1', 'chosen invoice number is used');
+select is((select last_value from public.invoice_number_sequences where scope = '2092'), 1, 'choosing a number does not consume the sequence');
+select throws_ok($$ select public.save_invoice('{"invoice_number":"FN-CHOSEN-1","project_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","period_start":"2092-04-01","period_end":"2092-04-30","issue_date":"2092-05-01","due_date":"2092-05-15","currency":"USD","client_name":"c","invoice_to":"c","invoice_title":"t","lines":[{"line_type":"custom","description":"x","amount":"10"}]}') $$,
+  '23505', null, 'chosen number must be unique');
+select matches((public.save_invoice('{"invoice_number":"  ","project_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","period_start":"2092-06-01","period_end":"2092-06-30","issue_date":"2092-07-01","due_date":"2092-07-15","currency":"USD","client_name":"c","invoice_to":"c","invoice_title":"t","lines":[{"line_type":"custom","description":"x","amount":"10"}]}')).invoice_number,
+  '^TST-2092-002$', 'blank number falls back to the sequence');
+
 -- Last active admin is protected
 select throws_ok($$ update public.profiles set access_role = 'viewer' where id = '88888888-8888-4888-8888-888888888888' and not exists (select 1 from public.profiles where access_role = 'admin' and is_active and id <> '88888888-8888-4888-8888-888888888888') $$,
   'P0001', 'LAST_ADMIN', 'cannot demote last active admin')

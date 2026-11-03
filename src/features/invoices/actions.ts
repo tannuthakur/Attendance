@@ -59,8 +59,10 @@ async function loadLines(supabase: ServerClient, invoiceId: string): Promise<Lin
   return check(await supabase.from('invoice_lines').select('*').eq('invoice_id', invoiceId).order('sort_order')) ?? [];
 }
 
+const NUMBER_TAKEN = 'That invoice number is already used (numbers of deleted invoices are never reused)';
+
 async function saveInvoice(supabase: ServerClient, payload: Record<string, unknown>): Promise<InvoiceRow> {
-  const inv = check(await supabase.rpc('save_invoice', { payload: payload as Json }));
+  const inv = check(await supabase.rpc('save_invoice', { payload: payload as Json }), { DUPLICATE: NUMBER_TAKEN });
   if (!inv) throw NOT_FOUND();
   return inv;
 }
@@ -121,6 +123,7 @@ async function buildTaskPayload(
     sourceHash: null,
     payload: {
       kind: 'task',
+      invoice_number: input.invoiceNumber,
       project_id: input.projectId,
       period_start: dates[0] ?? input.issueDate,
       period_end: dates.at(-1) ?? input.issueDate,
@@ -169,6 +172,7 @@ async function buildGeneratePayload(supabase: ServerClient, input: GenerateInput
     sourceHash: computed.loaded.hash,
     payload: {
       kind: 'cycle',
+      invoice_number: input.invoiceNumber,
       project_id: input.projectId,
       period_start: input.periodStart,
       period_end: input.periodEnd,
@@ -197,7 +201,7 @@ export const previewInvoicePdf = adminAction(generateInvoiceSchema, async (input
   const data = buildInvoicePdfData(
     {
       // SPEC-NOTE: preview shows the number Generate will most likely assign (not reserved yet).
-      invoice_number: await peekNextInvoiceNumber(supabase, payload.issue_date, settings),
+      invoice_number: input.invoiceNumber || (await peekNextInvoiceNumber(supabase, payload.issue_date, settings)),
       kind: payload.kind as 'cycle' | 'task',
       issue_date: payload.issue_date,
       due_date: payload.due_date,
@@ -256,6 +260,14 @@ export const generateInvoice = adminAction(
           `Invoice ${overlaps.map((o) => o.invoice_number).join(', ')} already covers part of this period. Confirm to continue.`,
         );
       }
+    }
+    if (input.invoiceNumber) {
+      // Friendly early check; the unique constraint still guards against races (incl. deleted invoices).
+      const { count } = await supabase
+        .from('invoices')
+        .select('id', { count: 'exact', head: true })
+        .eq('invoice_number', input.invoiceNumber);
+      if (count) throw new ActionFailure('DUPLICATE_INVOICE_NUMBER', NUMBER_TAKEN);
     }
     const { payload } = await buildGeneratePayload(supabase, input);
     const inv = await saveInvoice(supabase, payload);

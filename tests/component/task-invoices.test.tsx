@@ -46,6 +46,7 @@ const data: WizardData = {
     { id: T2, name: 'Checkout', description: null, amount: 800, start_date: null, end_date: null, status: 'open' },
   ],
   requestedType: null,
+  nextNumber: 'S2536',
 };
 
 beforeEach(() => {
@@ -93,12 +94,51 @@ describe('InvoiceWizard — task invoices', () => {
     const user = userEvent.setup();
     renderWithUser(<InvoiceWizard data={{ ...data, tasks: [] }} />);
     await user.click(screen.getByRole('button', { name: /next: review lines/i }));
-    expect(screen.getByText('No open tasks for this project.')).toBeInTheDocument();
+    // Wait for the async step change (flaked on CI when checked synchronously).
+    expect(await screen.findByText('No open tasks for this project.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /next: details/i })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: /add custom line/i }));
     await user.type(screen.getByLabelText('Description line 1'), 'Consulting');
     await user.type(screen.getByLabelText('Unit price line 1'), '300');
     expect(screen.getByRole('button', { name: /next: details/i })).toBeEnabled();
+  });
+});
+
+describe('InvoiceWizard — choose the invoice number (change request 7)', () => {
+  async function toDetails(user: ReturnType<typeof userEvent.setup>) {
+    renderWithUser(<InvoiceWizard data={data} />);
+    await user.click(screen.getByRole('button', { name: /next: review lines/i }));
+    await screen.findByRole('checkbox', { name: /Design/ });
+    await user.click(screen.getByRole('button', { name: /next: details/i }));
+    return screen.getByLabelText('Invoice number');
+  }
+
+  it('is prefilled with the next number and left automatic when unchanged', async () => {
+    actions.generateInvoice.mockResolvedValue({ ok: true, data: { id: 'inv1', projectId: PROJECT_ID, invoiceNumber: 'S2536', pdfStored: true } });
+    const user = userEvent.setup();
+    const field = await toDetails(user);
+    expect(field).toHaveValue('S2536');
+    expect(screen.getByText(/assigned when you click Generate/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^generate$/i }));
+    await waitFor(() => expect(actions.generateInvoice).toHaveBeenCalled());
+    expect(actions.generateInvoice.mock.calls[0][0].invoiceNumber).toBe('');
+  });
+
+  it('sends a custom number and blocks invalid ones', async () => {
+    actions.generateInvoice.mockResolvedValue({ ok: false, error: { code: 'DUPLICATE_INVOICE_NUMBER', message: 'That invoice number is already used' } });
+    const user = userEvent.setup();
+    const field = await toDetails(user);
+    await user.clear(field);
+    await user.type(field, 'S 25');
+    expect(screen.getByText(/letters, digits/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^generate$/i })).toBeDisabled();
+    await user.clear(field);
+    await user.type(field, 'S2540');
+    expect(screen.getByText(/Custom number/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^generate$/i }));
+    await waitFor(() => expect(actions.generateInvoice).toHaveBeenCalled());
+    expect(actions.generateInvoice.mock.calls[0][0].invoiceNumber).toBe('S2540');
+    expect((await screen.findAllByText('That invoice number is already used')).length).toBeGreaterThan(0);
   });
 });
 

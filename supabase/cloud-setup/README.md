@@ -9,6 +9,7 @@ Run the steps in order. Takes about 5 minutes.
 | `02_make_admin.sql` | Promotes your first user to Admin | **Yes** (or use `pnpm seed:admin`) |
 | `04_invoice_format.sql` | Adds the invoice-format settings (contact person, signature). **Only for projects set up before 27 Oct 2026**; new projects already get it from `01_schema.sql` | Only if needed |
 | `05_task_invoices.sql` | Task invoices + optional billing cycle (tasks table, invoice type). **Only for projects set up before 28 Oct 2026** | Only if needed |
+| `06_choose_invoice_number.sql` | Lets the invoice number be chosen in the Generate wizard. **Only for projects set up before 3 Nov 2026**; safe to re-run | Only if needed |
 | `03_demo_data_optional.sql` | Demo data: 15 employees, 4 projects, 2 months of attendance, 3 holidays, 3 invoices, plus demo logins `admin@example.com / Admin@12345` and `viewer@example.com / Viewer@12345` | Optional — skip for real data |
 
 > These files are generated from `supabase/migrations` and `supabase/seed.sql` by `pnpm db:bundle`.
@@ -49,6 +50,9 @@ It is safe to run more than once. Without it, **Admin → Settings** cannot save
 
 If `01_schema.sql` was run **before 28 Oct 2026**, run `05_task_invoices.sql` **once** (it is not re-runnable)
 **before deploying** code from 28 Oct onwards — the app reads the new `invoices.kind` column and `project_tasks` table.
+
+If `01_schema.sql` was run **before 3 Nov 2026**, run `06_choose_invoice_number.sql` (safe to re-run) before
+using a custom number in the Generate wizard — without it the typed number is ignored and the next one is used.
 
 ## Step 4 — Auth settings
 

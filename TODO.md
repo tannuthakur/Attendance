@@ -2,8 +2,8 @@
 
 > **Purpose:** single place to resume work if context is lost. Read this first, then `SPEC.md` (requirements)
 > and `docs/ARCHITECTURE.md` (code conventions).
-> **Last updated:** 28 Oct 2026, evening — everything deployed & in sync (code `main` = GitHub = Vercel production,
-> all 9 DB migrations applied). Task invoices live. Start at §0.1.
+> **Last updated:** 3 Nov 2026 — change request 7 (choose invoice number in the wizard) built & committed locally;
+> **waiting for the user to run `supabase/cloud-setup/06_choose_invoice_number.sql`, then push**. Start at §0.1.
 
 Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `[ ]` not started
 
@@ -12,6 +12,9 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
 ## 0. Resume here (state at end of 28 Oct 2026)
 
 ### 0.1 Start here (in this order)
+0. **Change request 7 — choose the invoice number while generating** (§3d): code committed locally, NOT pushed.
+   User runs `supabase/cloud-setup/06_choose_invoice_number.sql` → verify → `git push` (auto-deploys) → live check
+   (wizard Details step shows "Invoice number" prefilled with S2536).
 1. **Fix the CI end-to-end tests** (§3c): 18 passed, 6 failed, 1 didn't run — test-script selector issues, not app
    bugs. Read failures from the public run annotations (§5 "CI failures"). Everything before e2e is green in CI
    (lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration).
@@ -56,12 +59,13 @@ billing cycle) built, DB-upgraded, deployed and live-checked.
   - Vercel token `VERCEL_TOKEN` is in `.env.local` (was pasted in chat → user should delete it when done; the CLI
     also added `VERCEL_OIDC_TOKEN` there).
 - **Database:** Supabase Cloud project `ifslmdsqykywsavdvium` (URL/keys in `.env.local`).
-  - All 9 migrations applied (`01_schema.sql` + `04_invoice_format.sql` + `05_task_invoices.sql`), verified 28 Oct.
-    **No pending migration.** New DB changes → give the user a `supabase/cloud-setup/0N_*.sql` to run BEFORE pushing.
+  - 9 of 10 migrations applied (`01_schema.sql` + `04_invoice_format.sql` + `05_task_invoices.sql`), verified 28 Oct.
+    **Pending: migration 0010 → user runs `06_choose_invoice_number.sql`** (change request 7). New DB changes → give the user a `supabase/cloud-setup/0N_*.sql` to run BEFORE pushing.
   - Admin `admin@yopmail.com` (password = `SEED_ADMIN_PASSWORD` in `.env.local`, digits only → should be changed).
     Only user so far (no viewer yet).
-  - Real data: 12 employees, 2 projects (Saudi Living PRJ-0002 `54dc9c01-…`, Qatar Living PRJ-0003 `225b07c7-…`),
-    12 assignments, 311 attendance rows, 3 holidays, 1 invoice (soft-deleted). Demo data NOT loaded.
+  - Real data (3 Nov): 12 employees, 3 projects (Saudi Living PRJ-0002 `54dc9c01-…`, Qatar Living PRJ-0003
+    `225b07c7-…`, task-only "Foojan Website - Redesign" PRJ-0005 with 1 open task $800), 370 attendance rows (to
+    2 Nov), 3 holidays, 1 invoice (soft-deleted). Demo data NOT loaded.
   - Settings filled from the reference invoice (Sunfocus company, contact Mr. Vikas Thakur, address, email, phone,
     ICICI bank details, footer "Thanks for your Business"). Logo + signature were extracted from
     `~/Downloads/INVOICE S2535.pdf` and live in the Supabase `branding` bucket (not in git).
@@ -81,6 +85,7 @@ pnpm install
 pnpm lint && pnpm typecheck && pnpm test      # should be green (469 tests)
 pnpm build && pnpm start                       # http://localhost:3000
 # if port 3000 is busy:  lsof -ti tcp:3000 | xargs kill
+pnpm db:check                                  # migrations + seed + pgTAP on PGlite (no Docker) — run after DB changes
 pnpm db:bundle                                 # regenerate supabase/cloud-setup/*.sql after migration changes
 ```
 
@@ -340,6 +345,25 @@ Plan / status:
       bank details, signature). Test project PRJ-0004 + tasks deleted afterwards; no invoice generated (sequence
       still 2535 → next S2536). Not yet exercised live: Generate (save) of a task invoice — first real one will do it.
 
+## 3d. Change request 7 — choose the invoice number while generating (user, 3 Nov 2026)
+
+> "I need an option where I can change the invoice number." → user chose: **while generating** (wizard).
+> (Edit number on an issued invoice already existed; "set next number in Settings" was not chosen.)
+
+- [x] DB migration `20261103000010_choose_invoice_number.sql`: `save_invoice` uses `payload.invoice_number` when given,
+      else reserves the next number as before. Chosen numbers don't consume the sequence; uniqueness (incl. deleted
+      invoices) via the unique constraint. Cloud SQL: `supabase/cloud-setup/06_choose_invoice_number.sql` (re-runnable).
+- [x] Wizard Details step: "Invoice number" field prefilled with the next number (`WizardData.nextNumber`, peeked —
+      not reserved); unchanged = automatic; typed = custom (validated: letters/digits/`- _ / .`, ≤ 60). Preview PDF
+      shows the chosen number. Server pre-checks duplicates → "That invoice number is already used …".
+- [x] Shared `invoiceNumberField` / `INVOICE_NUMBER_RE` (also used by Edit number).
+- [x] Tests: 4 pgTAP assertions, 8 unit/component tests (477 unit/component passing; 109 pgTAP via `pnpm db:check`).
+- [x] Fixed the flaky CI test (`task-invoices.test.tsx` "No open tasks…" now awaited) — CI was red at the
+      unit/component step on 28 Oct because of it. Verified 5 consecutive local runs.
+- [x] New dev tool **`pnpm db:check`** (`scripts/db-check/`): all migrations + seed + pgTAP files on PGlite
+      (in-memory Postgres, Supabase/pgTAP stand-ins) in seconds — no Docker needed. Use before every DB change.
+- [ ] User runs `06_choose_invoice_number.sql` → push → live check.
+
 ## 3c. CI end-to-end tests (first run 28 Oct, commit `a1a458f`)
 - [x] CI pipeline green through lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration
 - [ ] E2E: 18 passed, 6 failed, 1 did not run. Failures look like test-script selector issues, e.g.
@@ -408,6 +432,7 @@ Plan / status:
 | PDF popup | `src/components/pdf-preview-dialog.tsx` |
 | Reference invoice | `~/Downloads/INVOICE S2535.pdf` |
 | Env | `.env.local` (secrets, ignored), `.env.example` |
+| Local DB check (no Docker) | `scripts/db-check/` → `pnpm db:check` |
 | Deployment config | `next.config.ts` (headers, pdfkit file tracing), `.vercelignore`, `.vercel/` (CLI link, ignored) |
 | CI | `.github/workflows/ci.yml` |
 | Supabase email templates | `supabase/templates/*.html` (paste into the Supabase dashboard) |

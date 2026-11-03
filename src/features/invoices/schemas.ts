@@ -6,6 +6,15 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DECIMAL = /^-?\d+(\.\d+)?$/;
 
 export const isoDate = z.string().regex(ISO_DATE, 'Enter a valid date');
+
+/** Invoice number typed by a user (Edit number, or chosen in the wizard). */
+export const INVOICE_NUMBER_RE = /^[A-Za-z0-9][A-Za-z0-9\-_/.]*$/;
+export const invoiceNumberField = z
+  .string()
+  .trim()
+  .min(1, 'Invoice number is required')
+  .max(60, 'Invoice number is too long')
+  .regex(INVOICE_NUMBER_RE, 'Use letters, digits and - _ / . only');
 const uuid = z.string().uuid('Invalid id');
 
 /** Money-like decimal as string (never parsed into floats). */
@@ -75,6 +84,8 @@ export const generateInvoiceSchema = z
     ...detailsShape,
     /** 'cycle' = billing cycle (employees & attendance); 'task' = tracked tasks + free-text lines. */
     invoiceType: z.enum(INVOICE_TYPES).default('cycle'),
+    // SPEC-NOTE (change request 7): '' / omitted = next number from the sequence, reserved atomically on save.
+    invoiceNumber: z.union([z.literal(''), invoiceNumberField]).optional().default(''),
     excludedAssignmentIds: z.array(uuid).default([]),
     lines: z.array(draftLineSchema).min(1, 'An invoice needs at least one line').max(500),
     /** Set after the user confirmed the "overlapping invoice" warning. */
@@ -119,12 +130,7 @@ export const regenerateSchema = z.object({
 
 export const changeNumberSchema = z.object({
   id: uuid,
-  invoiceNumber: z
-    .string()
-    .trim()
-    .min(1, 'Invoice number is required')
-    .max(60, 'Invoice number is too long')
-    .regex(/^[A-Za-z0-9][A-Za-z0-9\-_/.]*$/, 'Use letters, digits and - _ / . only'),
+  invoiceNumber: invoiceNumberField,
 });
 
 export const markPaidSchema = z.object({

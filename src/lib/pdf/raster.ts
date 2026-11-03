@@ -1,15 +1,13 @@
 import 'server-only';
-import { createRequire } from 'node:module';
 import path from 'node:path';
 
 // The PNG download is the rendered PDF itself, so it always matches the PDF exactly.
 // pdfjs-dist + @napi-rs/canvas are server external packages (see next.config.ts).
 
-// Resolved at runtime from the app root: webpack rewrites `createRequire(import.meta.url)` into its own
-// module require, which returns a module id instead of a file path.
+// From the app root (`node_modules/pdfjs-dist` is traced, see next.config.ts). Not via require.resolve /
+// createRequire: webpack rewrites both, and in the production build createRequire ends up undefined.
 function standardFontsDir(): string {
-  const nodeRequire = createRequire(path.join(process.cwd(), 'package.json'));
-  return path.join(path.dirname(nodeRequire.resolve('pdfjs-dist/package.json')), 'standard_fonts') + path.sep;
+  return path.join(process.cwd(), 'node_modules', 'pdfjs-dist', 'standard_fonts') + path.sep;
 }
 
 /** Renders every page of a PDF and stacks them vertically into one PNG. `scale` 2 ≈ 144 dpi. */

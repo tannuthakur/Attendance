@@ -1208,6 +1208,6 @@ twice. Shared primitives in `src/components/`:
 
 | Still open | Default used until answered |
 |---|---|
-| Default night-allowance rate amount | `per_night` 0.00 until set in Settings (report warns "No rate") |
+| Default night-allowance rate amount | **Answered 4 Nov 2026: INR 180.00 per night** (`per_night`, from 1 Nov 2026) |
 | Employee on several projects with different weekends | Earliest assignment's project weekend |
 | Should the report also be downloadable as PDF / Excel? | CSV only in v1.1 |

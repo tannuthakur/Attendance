@@ -411,7 +411,8 @@ Decisions (answered by user 4 Nov):
 - Counts **only when the employee comes to the office**: no weekends, no holidays, no leave (night shift from home = WFH).
 - Confirmed 4 Nov: **calendar month** period, WFH night shift earns nothing, payroll currency **INR**, default
   weekend **Sat + Sun** (employees without a project + new projects; existing projects keep Fri + Sat).
-- Still open: the default night-allowance rate amount (set in Settings once built).
+- Answered 4 Nov: default night-allowance rate = **INR 180.00 per night** (from 1 Nov 2026) — set right after `07_…sql`
+  (SQL in the chat / Settings ▸ Night allowance ▸ New default rate).
 
 Plan (SPEC §17.7):
 - [x] 14 Migration `20261104000011_night_shift_allowance.sql` (re-runnable; verified applying it 3×) + cloud

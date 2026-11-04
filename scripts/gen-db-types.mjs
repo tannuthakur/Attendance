@@ -8,6 +8,8 @@ const enums = {
   project_status: ['not_started', 'active', 'paused', 'ended', 'cancelled'],
   invoice_status: ['draft', 'issued', 'paid', 'void'],
   invoice_line_type: ['employee', 'custom'],
+  night_allowance_method: ['per_night', 'monthly_fixed', 'percent_daily'],
+  night_allowance_status: ['draft', 'finalised'],
 };
 
 // column: [tsType, nullable, hasDefault]
@@ -24,6 +26,7 @@ const tables = {
     company_contact_name: c(S, true), signature_path: c(S, true),
     invoice_number_prefix: c(S, false, true), invoice_number_format: c(S, false, true), invoice_footer: c(S, true),
     business_timezone: c(S, false, true), proration_basis: c(S, false, true),
+    default_weekend_days: c('number[]', false, true), payroll_currency: c(S, false, true),
     created_at: c(S, false, true), updated_at: c(S, false, true),
   },
   profiles: {
@@ -32,7 +35,8 @@ const tables = {
   },
   job_roles: { ...id, name: c(S), is_active: c(B, false, true), sort_order: c(N, false, true), ...audit },
   designations: { ...id, name: c(S), is_active: c(B, false, true), sort_order: c(N, false, true), ...audit },
-  attendance_statuses: { code: c(S), label: c(S), is_leave: c(B), deduction_factor: c(N), color: c(S), sort_order: c(N) },
+  attendance_statuses: { code: c(S), label: c(S), is_leave: c(B), deduction_factor: c(N), color: c(S), sort_order: c(N),
+    earns_night_allowance: c(B, false, true) },
   employees: {
     ...id, code: c(S, false, true), name: c(S), email: c(S), job_role_id: c(S), designation_id: c(S, true),
     phone: c(S, true), notes: c(S, true), current_status: c(S, false, true), start_date: c(S), end_date: c(S, true),
@@ -85,6 +89,19 @@ const tables = {
     end_date: c(S, true), status: c(`'open' | 'completed'`, false, true), invoice_id: c(S, true),
     sort_order: c(N, false, true), ...audit,
   },
+  night_allowance_rates: {
+    ...id, employee_id: c(S, true), method: c(E('night_allowance_method')), amount: c(N, true), percent: c(N, true),
+    base_monthly_salary: c(N, true), effective_from: c(S), effective_to: c(S, true), note: c(S, true),
+    created_by: c(S, true, true), created_at: c(S, true, true),
+  },
+  night_allowance_statements: {
+    ...id, employee_id: c(S), month: c(S), status: c(E('night_allowance_status'), false, true), currency: c(S),
+    working_days: c(N), night_shifts: c(N), calculated_nights: c(N), calculated_amount: c(N),
+    nights_override: c(N, true), amount_override: c(N, true), override_reason: c(S, true), final_nights: c(N),
+    final_amount: c(N), breakdown: c(J), source_hash: c(S), notes: c(S, true), finalised_at: c(S, true),
+    finalised_by: c(S, true), reopened_reason: c(S, true), reopened_at: c(S, true),
+    created_at: c(S, true, true), updated_at: c(S, true, true),
+  },
   invoice_number_sequences: { scope: c(S), last_value: c(N, false, true) },
   invoice_events: {
     ...id, invoice_id: c(S), event: c(S), details: c(J, true), created_by: c(S, true, true), created_at: c(S, true, true),
@@ -122,6 +139,10 @@ const views = {
     designation_id: c(S, true), status_label: c(S), is_leave: c(B), deduction_factor: c(N), status_color: c(S),
     project_ids: c('string[]'), project_names: c('string[]'), marked_by_name: c(S, true),
   },
+  night_allowance_statement_list: {
+    ...rowOf('night_allowance_statements'), employee_code: c(S), employee_name: c(S), job_role_id: c(S),
+    designation_id: c(S, true),
+  },
   holiday_list: {
     ...rowOf('holidays'), year: c(N), month: c(N), day_of_week: c(N), project_ids: c('string[]'), project_names: c('string[]'),
   },
@@ -145,6 +166,11 @@ const fns = {
   save_invoice: ['{ payload: Json }', 'Database["public"]["Tables"]["invoices"]["Row"]'],
   invoice_action: ['{ p_invoice_id: string; p_action: string; p_args?: Json }', 'Database["public"]["Tables"]["invoices"]["Row"]'],
   log_invoice_download: ['{ p_invoice_id: string }', 'undefined'],
+  employee_weekend_days: ['{ p_employee_id: string; p_date: string }', 'number[]'],
+  add_night_allowance_rate: ['{ payload: Json }', 'Database["public"]["Tables"]["night_allowance_rates"]["Row"]'],
+  end_night_allowance_rate: ['{ p_employee_id: string; p_from: string }', 'undefined'],
+  save_night_allowance: ['{ payload: Json }', 'Database["public"]["Tables"]["night_allowance_statements"]["Row"]'],
+  night_allowance_month_action: ['{ p_month: string; p_action: string; p_reason?: string | null; p_rows?: Json }', 'number'],
 };
 
 const field = (k, v, mode) => {

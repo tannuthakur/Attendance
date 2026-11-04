@@ -132,12 +132,16 @@ select public.upsert_attendance_bulk(coalesce(jsonb_agg(jsonb_build_object(
            when abs(hashtext(e.id::text || d::text)) % 100 < 5 then 'half_day'
            when abs(hashtext(e.id::text || d::text)) % 100 < 8 then 'short_leave'
            when abs(hashtext(e.id::text || d::text)) % 100 < 20 then 'wfh'
+           when abs(hashtext(e.id::text || d::text)) % 100 < 26 then 'night_shift'
            else 'present' end)), '[]'::jsonb))
   from public.employees e
   cross join generate_series('2026-08-27'::date, '2026-10-26'::date, interval '1 day') d
  where extract(dow from d) not in (5, 6)
    and exists (select 1 from public.employment_periods p
                 where p.employee_id = e.id and p.start_date <= d and (p.end_date is null or p.end_date >= d));
+
+-- Night allowance (§17): company default rate.
+select public.add_night_allowance_rate('{"method":"per_night","amount":"500","effective_from":"2026-01-01","note":"Demo default"}');
 
 -- ---------------------------------------------------------------------------
 -- Invoices (3): issued, paid, void. Real invoices are generated in the app; these use

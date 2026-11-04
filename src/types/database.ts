@@ -21,6 +21,8 @@ export type Database = {
           invoice_footer: string | null
           business_timezone: string
           proration_basis: string
+          default_weekend_days: number[]
+          payroll_currency: string
           created_at: string
           updated_at: string
         }
@@ -40,6 +42,8 @@ export type Database = {
           invoice_footer?: string | null
           business_timezone?: string
           proration_basis?: string
+          default_weekend_days?: number[]
+          payroll_currency?: string
           created_at?: string
           updated_at?: string
         }
@@ -59,6 +63,8 @@ export type Database = {
           invoice_footer?: string | null
           business_timezone?: string
           proration_basis?: string
+          default_weekend_days?: number[]
+          payroll_currency?: string
           created_at?: string
           updated_at?: string
         }
@@ -165,6 +171,7 @@ export type Database = {
           deduction_factor: number
           color: string
           sort_order: number
+          earns_night_allowance: boolean
         }
         Insert: {
           code: string
@@ -173,6 +180,7 @@ export type Database = {
           deduction_factor: number
           color: string
           sort_order: number
+          earns_night_allowance?: boolean
         }
         Update: {
           code?: string
@@ -181,6 +189,7 @@ export type Database = {
           deduction_factor?: number
           color?: string
           sort_order?: number
+          earns_night_allowance?: boolean
         }
         Relationships: []
       }
@@ -718,6 +727,126 @@ export type Database = {
         }
         Relationships: []
       }
+      night_allowance_rates: {
+        Row: {
+          id: string
+          employee_id: string | null
+          method: Database["public"]["Enums"]["night_allowance_method"]
+          amount: number | null
+          percent: number | null
+          base_monthly_salary: number | null
+          effective_from: string
+          effective_to: string | null
+          note: string | null
+          created_by: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          employee_id?: string | null
+          method: Database["public"]["Enums"]["night_allowance_method"]
+          amount?: number | null
+          percent?: number | null
+          base_monthly_salary?: number | null
+          effective_from: string
+          effective_to?: string | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          employee_id?: string | null
+          method?: Database["public"]["Enums"]["night_allowance_method"]
+          amount?: number | null
+          percent?: number | null
+          base_monthly_salary?: number | null
+          effective_from?: string
+          effective_to?: string | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      night_allowance_statements: {
+        Row: {
+          id: string
+          employee_id: string
+          month: string
+          status: Database["public"]["Enums"]["night_allowance_status"]
+          currency: string
+          working_days: number
+          night_shifts: number
+          calculated_nights: number
+          calculated_amount: number
+          nights_override: number | null
+          amount_override: number | null
+          override_reason: string | null
+          final_nights: number
+          final_amount: number
+          breakdown: Json
+          source_hash: string
+          notes: string | null
+          finalised_at: string | null
+          finalised_by: string | null
+          reopened_reason: string | null
+          reopened_at: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          month: string
+          status?: Database["public"]["Enums"]["night_allowance_status"]
+          currency: string
+          working_days: number
+          night_shifts: number
+          calculated_nights: number
+          calculated_amount: number
+          nights_override?: number | null
+          amount_override?: number | null
+          override_reason?: string | null
+          final_nights: number
+          final_amount: number
+          breakdown: Json
+          source_hash: string
+          notes?: string | null
+          finalised_at?: string | null
+          finalised_by?: string | null
+          reopened_reason?: string | null
+          reopened_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          month?: string
+          status?: Database["public"]["Enums"]["night_allowance_status"]
+          currency?: string
+          working_days?: number
+          night_shifts?: number
+          calculated_nights?: number
+          calculated_amount?: number
+          nights_override?: number | null
+          amount_override?: number | null
+          override_reason?: string | null
+          final_nights?: number
+          final_amount?: number
+          breakdown?: Json
+          source_hash?: string
+          notes?: string | null
+          finalised_at?: string | null
+          finalised_by?: string | null
+          reopened_reason?: string | null
+          reopened_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       invoice_number_sequences: {
         Row: {
           scope: string
@@ -981,6 +1110,38 @@ export type Database = {
         }
         Relationships: []
       }
+      night_allowance_statement_list: {
+        Row: {
+          id: string
+          employee_id: string
+          month: string
+          status: Database["public"]["Enums"]["night_allowance_status"]
+          currency: string
+          working_days: number
+          night_shifts: number
+          calculated_nights: number
+          calculated_amount: number
+          nights_override: number | null
+          amount_override: number | null
+          override_reason: string | null
+          final_nights: number
+          final_amount: number
+          breakdown: Json
+          source_hash: string
+          notes: string | null
+          finalised_at: string | null
+          finalised_by: string | null
+          reopened_reason: string | null
+          reopened_at: string | null
+          created_at: string | null
+          updated_at: string | null
+          employee_code: string
+          employee_name: string
+          job_role_id: string
+          designation_id: string | null
+        }
+        Relationships: []
+      }
       holiday_list: {
         Row: {
           id: string
@@ -1018,12 +1179,19 @@ export type Database = {
       save_invoice: { Args: { payload: Json }; Returns: Database["public"]["Tables"]["invoices"]["Row"] }
       invoice_action: { Args: { p_invoice_id: string; p_action: string; p_args?: Json }; Returns: Database["public"]["Tables"]["invoices"]["Row"] }
       log_invoice_download: { Args: { p_invoice_id: string }; Returns: undefined }
+      employee_weekend_days: { Args: { p_employee_id: string; p_date: string }; Returns: number[] }
+      add_night_allowance_rate: { Args: { payload: Json }; Returns: Database["public"]["Tables"]["night_allowance_rates"]["Row"] }
+      end_night_allowance_rate: { Args: { p_employee_id: string; p_from: string }; Returns: undefined }
+      save_night_allowance: { Args: { payload: Json }; Returns: Database["public"]["Tables"]["night_allowance_statements"]["Row"] }
+      night_allowance_month_action: { Args: { p_month: string; p_action: string; p_reason?: string | null; p_rows?: Json }; Returns: number }
     }
     Enums: {
       access_role: "admin" | "viewer"
       project_status: "not_started" | "active" | "paused" | "ended" | "cancelled"
       invoice_status: "draft" | "issued" | "paid" | "void"
       invoice_line_type: "employee" | "custom"
+      night_allowance_method: "per_night" | "monthly_fixed" | "percent_daily"
+      night_allowance_status: "draft" | "finalised"
     }
     CompositeTypes: { [_ in never]: never }
   }

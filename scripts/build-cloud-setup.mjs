@@ -22,4 +22,18 @@ writeFileSync(
   header('Step 3 (OPTIONAL) — demo data: 15 employees, 4 projects, attendance, holidays, 3 invoices, plus demo users admin@example.com / viewer@example.com. Skip for production.') +
     seed,
 );
-console.log(`wrote ${out}/01_schema.sql and ${out}/03_demo_data_optional.sql`);
+// Upgrade files for projects created before a migration existed (re-runnable migrations only).
+const upgrades = {
+  '07_night_shift_allowance.sql': [
+    '20261104000011_night_shift_allowance.sql',
+    'Step 7 — v1.1 night shift + night allowance + default weekend (4 Nov 2026). Safe to run more than once.\n-- Run it BEFORE deploying the v1.1 code. Fresh projects get it from 01_schema.sql.',
+  ],
+};
+for (const [file, [migration, title]] of Object.entries(upgrades)) {
+  writeFileSync(
+    `${out}/${file}`,
+    `-- ${title}\n-- GENERATED from supabase/migrations/${migration} by scripts/build-cloud-setup.mjs — do not edit here.\n\n` +
+      readFileSync(`supabase/migrations/${migration}`, 'utf8'),
+  );
+}
+console.log(`wrote ${out}/01_schema.sql, ${out}/03_demo_data_optional.sql and ${Object.keys(upgrades).join(', ')}`);

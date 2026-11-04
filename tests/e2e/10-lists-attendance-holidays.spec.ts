@@ -52,6 +52,8 @@ test('holidays list: scope filter + name sort persist after reload', async ({ pa
   await expect(page.getByRole('cell', { name: 'Diwali', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Saudi National Day', exact: true })).toHaveCount(0);
 
+  // A Link clicked before hydration finishes can be dropped by the router (seen in CI after the reload).
+  await page.waitForLoadState('networkidle');
   await page.getByRole('link', { name: 'Calendar' }).click();
   await expect(page).toHaveURL(/view=calendar&mode=year/);
   await expect(page.getByRole('region', { name: 'November 2026' }).locator('[title^="Diwali"]')).toHaveCount(1);

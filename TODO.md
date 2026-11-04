@@ -445,7 +445,7 @@ Plan (SPEC §17.7):
       warning `kind`, and `TopProgressBar` listened in the bubble phase so `<Link>` clicks never started it — with
       it fixed, e2e 10 holidays List → Calendar navigates again) → Vercel READY. Live UI check by the user pending.
 
-## 3g. v1.2 — change request 12: "Attendance manager" role (user, 4 Nov 2026)
+## 3g. v1.2 — change request 12: "Attendance manager" role (user, 4 Nov 2026) — DONE & LIVE
 
 > "Add the user role who can add employee, mark attendance and can see only night allowance."
 
@@ -463,11 +463,13 @@ holidays still read-only); employees **add + edit** (no delete / on-off-role / r
       project detail hides Tasks / Billing cycles / Invoices tabs and money fields; projects list / CSV hide money;
       dashboard hides invoice KPIs, invoiced chart, invoice widgets; all attendance screens editable for managers.
       SPEC-NOTE: project tasks carry amounts, so `project_tasks` is hidden from managers as well.
-- [ ] 23 Tests written: unit `permissions` + `admin-paths` (35), component `attendance-manager` (8), integration
+- [x] 23 Tests written: unit `permissions` + `admin-paths` (35), component `attendance-manager` (8), integration
       `attendance-manager` (CI), e2e `12-attendance-manager` (CI; login `manager@example.com`). Local: 579 tests,
       193 pgTAP, typecheck, lint, build all green.
       → **user runs `supabase/cloud-setup/08_attendance_manager.sql`** → push → CI → Vercel → live check →
       admin gives a user the "Attendance manager" role (Admin ▸ Users ▸ Edit).
+      Done 4 Nov: user ran `08_…sql` → pushed `71cf095` → CI green (incl. integration + e2e 12) → Vercel READY.
+      Pending (user): assign the role to a real user and try it live.
 
 ## 3c. CI end-to-end tests (first run 28 Oct, commit `a1a458f`)
 - [x] CI pipeline green through lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration

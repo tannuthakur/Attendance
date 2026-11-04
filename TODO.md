@@ -395,7 +395,7 @@ Plan / status:
 - [x] CI green (e2e downloads docx + png from a production build) · Vercel `1d34ad4` READY.
 - [ ] User: live check — Word + image download of a real invoice.
 
-## 3f. v1.1 — change requests 9–11 (user, 4 Nov 2026) — BUILT, waiting for the cloud SQL
+## 3f. v1.1 — change requests 9–11 (user, 4 Nov 2026) — DONE & LIVE
 
 > 1. New attendance status for night shift. 2. Calculate the night allowance of employees on night shift (weekends
 > must not be included). 3. The night allowance must be editable. 4. An employee must not have to be assigned to a
@@ -441,7 +441,9 @@ Plan (SPEC §17.7):
       Download ▾ items fetch with a spinner. **Real 403**: middleware rewrites admin-only paths (`/admin/*`, `…/new`,
       `…/edit`) for non-admins to `/access-denied` with status 403 (verified a rewrite keeps 403); e2e `08` asserts
       403 for all again. New e2e `11-night-allowance` (incl. a delayed request → disabled spinner button).
-- [ ] 19 **User runs `07_night_shift_allowance.sql`** → push local commits → CI green → Vercel READY → live check
+- [x] 19 User ran `07_…sql` + default rate INR 180 → pushed → CI green at `e9fccfc` (fixed on the way: integration
+      warning `kind`, and `TopProgressBar` listened in the bubble phase so `<Link>` clicks never started it — with
+      it fixed, e2e 10 holidays List → Calendar navigates again) → Vercel READY. Live UI check by the user pending.
 
 ## 3c. CI end-to-end tests (first run 28 Oct, commit `a1a458f`)
 - [x] CI pipeline green through lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration

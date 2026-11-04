@@ -4,6 +4,7 @@ import { expect, type Page } from '@playwright/test';
 export const USERS = {
   admin: { email: 'admin@example.com', password: 'Admin@12345' },
   viewer: { email: 'viewer@example.com', password: 'Viewer@12345' },
+  manager: { email: 'manager@example.com', password: 'Manager@12345' },
 } as const;
 
 export async function login(page: Page, role: keyof typeof USERS) {

@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { ColorBadge } from '@/components/status-badge';
-import { useIsAdmin } from '@/components/providers/current-user';
+import { useCan, useIsAdmin } from '@/components/providers/current-user';
 import { formatDate } from '@/lib/dates';
 import { formatMoney } from '@/lib/format';
 import { changeAssignmentCost, endAssignment, removeAssignment } from '../actions';
@@ -41,13 +41,22 @@ const STATE_BADGE = {
 type DialogState = { kind: 'cost' | 'end'; row: AssignmentWithRates } | null;
 
 /** Assignments with current cost + cost history; used by the project Team tab and employee Projects tab. */
-export function AssignmentsTable({ rows, mode, today }: { rows: AssignmentWithRates[]; mode: Mode; today: string }) {
+export function AssignmentsTable({
+  rows,
+  mode,
+  today,
+}: {
+  rows: AssignmentWithRates[];
+  mode: Mode;
+  today: string;
+}) {
   const isAdmin = useIsAdmin();
+  const { seeMoney } = useCan();
   const [dialog, setDialog] = useState<DialogState>(null);
 
   if (!rows.length) {
     return (
-      <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">
+      <p className="text-muted-foreground rounded-md border p-6 text-center text-sm">
         {mode === 'project' ? 'No employees assigned yet.' : 'Not assigned to any project yet.'}
       </p>
     );
@@ -64,8 +73,8 @@ export function AssignmentsTable({ rows, mode, today }: { rows: AssignmentWithRa
               <TableHead>Start</TableHead>
               <TableHead>End</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Current monthly cost</TableHead>
-              <TableHead>Cost history</TableHead>
+              {seeMoney && <TableHead className="text-right">Current monthly cost</TableHead>}
+              {seeMoney && <TableHead>Cost history</TableHead>}
               {isAdmin && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -79,27 +88,37 @@ export function AssignmentsTable({ rows, mode, today }: { rows: AssignmentWithRa
                     {mode === 'project' ? (
                       <Link href={`/employees/${a.employee_id}`} className="font-medium hover:underline">
                         {a.employee_name}
-                        <span className="ml-1 font-mono text-xs text-muted-foreground">{a.employee_code}</span>
+                        <span className="text-muted-foreground ml-1 font-mono text-xs">
+                          {a.employee_code}
+                        </span>
                       </Link>
                     ) : (
                       <Link href={`/projects/${a.project_id}`} className="font-medium hover:underline">
                         {a.project_name}
-                        <span className="ml-1 font-mono text-xs text-muted-foreground">{a.project_code}</span>
+                        <span className="text-muted-foreground ml-1 font-mono text-xs">{a.project_code}</span>
                       </Link>
                     )}
                   </TableCell>
-                  <TableCell>{a.role_on_project ?? <span className="text-muted-foreground">{a.job_role_name}</span>}</TableCell>
+                  <TableCell>
+                    {a.role_on_project ?? <span className="text-muted-foreground">{a.job_role_name}</span>}
+                  </TableCell>
                   <TableCell className="whitespace-nowrap">{formatDate(a.start_date)}</TableCell>
-                  <TableCell className="whitespace-nowrap">{a.end_date ? formatDate(a.end_date) : 'Ongoing'}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {a.end_date ? formatDate(a.end_date) : 'Ongoing'}
+                  </TableCell>
                   <TableCell>
                     <ColorBadge color={badge.color}>{badge.label}</ColorBadge>
                   </TableCell>
-                  <TableCell className="text-right whitespace-nowrap tabular-nums">
-                    {formatMoney(a.current_monthly_cost, a.currency)}
-                  </TableCell>
-                  <TableCell>
-                    <CostHistory rates={a.rates} currency={a.currency} />
-                  </TableCell>
+                  {seeMoney && (
+                    <>
+                      <TableCell className="text-right whitespace-nowrap tabular-nums">
+                        {formatMoney(a.current_monthly_cost, a.currency)}
+                      </TableCell>
+                      <TableCell>
+                        <CostHistory rates={a.rates} currency={a.currency} />
+                      </TableCell>
+                    </>
+                  )}
                   {isAdmin && (
                     <TableCell className="text-right whitespace-nowrap">
                       <div className="flex justify-end gap-1">
@@ -119,8 +138,12 @@ export function AssignmentsTable({ rows, mode, today }: { rows: AssignmentWithRa
           </TableBody>
         </Table>
       </div>
-      {dialog?.kind === 'cost' && <ChangeCostDialog row={dialog.row} today={today} onClose={() => setDialog(null)} />}
-      {dialog?.kind === 'end' && <EndAssignmentDialog row={dialog.row} today={today} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'cost' && (
+        <ChangeCostDialog row={dialog.row} today={today} onClose={() => setDialog(null)} />
+      )}
+      {dialog?.kind === 'end' && (
+        <EndAssignmentDialog row={dialog.row} today={today} onClose={() => setDialog(null)} />
+      )}
     </>
   );
 }
@@ -130,13 +153,14 @@ export function CostHistory({ rates, currency }: { rates: AssignmentWithRates['r
   const sorted = [...rates].sort((a, b) => b.effective_from.localeCompare(a.effective_from));
   return (
     <details className="text-sm">
-      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+      <summary className="text-muted-foreground hover:text-foreground cursor-pointer">
         {rates.length} {rates.length === 1 ? 'rate' : 'rates'}
       </summary>
       <ul className="mt-1 space-y-0.5" aria-label="Cost history">
         {sorted.map((r) => (
           <li key={r.id} className="whitespace-nowrap tabular-nums">
-            {formatMoney(r.monthly_cost, currency)} <span className="text-muted-foreground">from {formatDate(r.effective_from)}</span>
+            {formatMoney(r.monthly_cost, currency)}{' '}
+            <span className="text-muted-foreground">from {formatDate(r.effective_from)}</span>
           </li>
         ))}
       </ul>
@@ -165,7 +189,15 @@ function RemoveAssignmentButton({ row, mode }: { row: AssignmentWithRates; mode:
   );
 }
 
-function ChangeCostDialog({ row, today, onClose }: { row: AssignmentWithRates; today: string; onClose: () => void }) {
+function ChangeCostDialog({
+  row,
+  today,
+  onClose,
+}: {
+  row: AssignmentWithRates;
+  today: string;
+  onClose: () => void;
+}) {
   const [amount, setAmount] = useState(row.current_monthly_cost?.toString() ?? '');
   const [date, setDate] = useState(today < row.start_date ? row.start_date : today);
   const [error, setError] = useState<string>();
@@ -173,7 +205,11 @@ function ChangeCostDialog({ row, today, onClose }: { row: AssignmentWithRates; t
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = changeCostSchema.safeParse({ assignment_id: row.id, monthly_cost: parseAmount(amount), effective_from: date });
+    const parsed = changeCostSchema.safeParse({
+      assignment_id: row.id,
+      monthly_cost: parseAmount(amount),
+      effective_from: date,
+    });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message);
       return;
@@ -184,7 +220,9 @@ function ChangeCostDialog({ row, today, onClose }: { row: AssignmentWithRates; t
         setError(res.error.message);
         return;
       }
-      toast.success(`Cost updated to ${formatMoney(parsed.data.monthly_cost, row.currency)} from ${formatDate(date)}`);
+      toast.success(
+        `Cost updated to ${formatMoney(parsed.data.monthly_cost, row.currency)} from ${formatDate(date)}`,
+      );
       onClose();
     });
   };
@@ -225,7 +263,7 @@ function ChangeCostDialog({ row, today, onClose }: { row: AssignmentWithRates; t
             </div>
           </div>
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-destructive text-sm">
               {error}
             </p>
           )}
@@ -243,7 +281,15 @@ function ChangeCostDialog({ row, today, onClose }: { row: AssignmentWithRates; t
   );
 }
 
-function EndAssignmentDialog({ row, today, onClose }: { row: AssignmentWithRates; today: string; onClose: () => void }) {
+function EndAssignmentDialog({
+  row,
+  today,
+  onClose,
+}: {
+  row: AssignmentWithRates;
+  today: string;
+  onClose: () => void;
+}) {
   const [date, setDate] = useState(row.end_date ?? (today < row.start_date ? row.start_date : today));
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
@@ -277,16 +323,22 @@ function EndAssignmentDialog({ row, today, onClose }: { row: AssignmentWithRates
           <DialogHeader>
             <DialogTitle>End assignment</DialogTitle>
             <DialogDescription>
-              {row.employee_name} on {row.project_name}, started {formatDate(row.start_date)}. The end date is the last
-              billable day.
+              {row.employee_name} on {row.project_name}, started {formatDate(row.start_date)}. The end date is
+              the last billable day.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="assignment-end">End date</Label>
-            <Input id="assignment-end" type="date" min={row.start_date} value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input
+              id="assignment-end"
+              type="date"
+              min={row.start_date}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
           </div>
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-destructive text-sm">
               {error}
             </p>
           )}

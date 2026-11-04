@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { COLOR_CLASSES } from '@/components/status-badge';
-import { useIsAdmin } from '@/components/providers/current-user';
+import { useCan } from '@/components/providers/current-user';
 import { formatDate, WEEKDAYS_SHORT } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 import { saveAttendance } from '../actions';
@@ -34,8 +34,14 @@ const SAVE_DELAY_MS = 300;
  * Employees × days. Admins click a cell to cycle its status
  * (not marked → present → wfh → short → half → full → not marked); it saves after a short pause.
  */
-export function MonthGrid({ employees, days, records, statuses, emptyMessage = 'No on-role employees this month.' }: Props) {
-  const isAdmin = useIsAdmin();
+export function MonthGrid({
+  employees,
+  days,
+  records,
+  statuses,
+  emptyMessage = 'No on-role employees this month.',
+}: Props) {
+  const canMark = useCan().markAttendance;
   const [cells, setCells] = useState(records);
   /** Desired values (source of truth for pending saves) and last persisted values. */
   const current = useRef(records);
@@ -72,7 +78,14 @@ export function MonthGrid({ employees, days, records, statuses, emptyMessage = '
     const before = saved.current[key];
     if ((desired?.status_code ?? null) === (before?.status_code ?? null)) return;
     const res = await saveAttendance({
-      rows: [{ employee_id: employeeId, date, status_code: (desired?.status_code ?? null) as AttendanceCode | null, remarks: desired?.remarks ?? null }],
+      rows: [
+        {
+          employee_id: employeeId,
+          date,
+          status_code: (desired?.status_code ?? null) as AttendanceCode | null,
+          remarks: desired?.remarks ?? null,
+        },
+      ],
     });
     if (!res.ok || res.data.skipped.length) {
       toast.error(res.ok ? 'Not saved – the employee is off-role on that date' : res.error.message);
@@ -102,14 +115,18 @@ export function MonthGrid({ employees, days, records, statuses, emptyMessage = '
     );
   };
 
-  if (!visible.length) return <p className="py-8 text-center text-sm text-muted-foreground">{emptyMessage}</p>;
+  if (!visible.length)
+    return <p className="text-muted-foreground py-8 text-center text-sm">{emptyMessage}</p>;
 
   return (
     <div className="overflow-x-auto rounded-md border">
       <table className="w-full border-collapse text-xs" aria-label="Attendance month grid">
         <thead>
           <tr>
-            <th scope="col" className="sticky left-0 z-10 min-w-44 bg-background px-2 py-1 text-left font-medium">
+            <th
+              scope="col"
+              className="bg-background sticky left-0 z-10 min-w-44 px-2 py-1 text-left font-medium"
+            >
               Employee
             </th>
             {days.map((d) => (
@@ -132,7 +149,7 @@ export function MonthGrid({ employees, days, records, statuses, emptyMessage = '
         <tbody>
           {visible.map((e) => (
             <tr key={e.id} className="border-t">
-              <th scope="row" className="sticky left-0 z-10 bg-background px-2 py-1 text-left font-normal">
+              <th scope="row" className="bg-background sticky left-0 z-10 px-2 py-1 text-left font-normal">
                 <div className="font-medium">{e.name}</div>
                 <div className="text-muted-foreground">{e.code}</div>
               </th>
@@ -143,27 +160,41 @@ export function MonthGrid({ employees, days, records, statuses, emptyMessage = '
                 const label = `${e.name}, ${formatDate(d.date)}: ${
                   onRole ? (status?.label ?? NOT_MARKED_LABEL) : 'Off-role'
                 }${d.holiday ? ` (holiday: ${d.holiday})` : d.weekend ? ' (weekend)' : ''}`;
-                const content = onRole ? (rec ? (STATUS_SHORT[rec.status_code] ?? rec.status_code) : '·') : '–';
+                const content = onRole
+                  ? rec
+                    ? (STATUS_SHORT[rec.status_code] ?? rec.status_code)
+                    : '·'
+                  : '–';
                 const cls = cn(
                   'flex h-7 w-full items-center justify-center rounded-sm border text-[11px] font-medium',
                   status ? COLOR_CLASSES[status.color] : 'border-transparent text-muted-foreground',
-                  !onRole && 'bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,var(--color-border)_3px,var(--color-border)_4px)]',
+                  !onRole &&
+                    'bg-[repeating-linear-gradient(45deg,transparent,transparent_3px,var(--color-border)_3px,var(--color-border)_4px)]',
                 );
                 return (
                   <td key={d.date} className={cn('p-0.5', (d.weekend || d.holiday) && 'bg-muted')}>
-                    {isAdmin && onRole ? (
+                    {canMark && onRole ? (
                       <button
                         type="button"
                         aria-label={label}
                         title={label}
                         data-testid={`cell-${e.id}-${d.date}`}
-                        className={cn(cls, 'cursor-pointer hover:ring-2 hover:ring-ring/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none')}
+                        className={cn(
+                          cls,
+                          'hover:ring-ring/40 focus-visible:ring-ring cursor-pointer hover:ring-2 focus-visible:ring-2 focus-visible:outline-none',
+                        )}
                         onClick={() => cycle(e.id, d.date)}
                       >
                         {content}
                       </button>
                     ) : (
-                      <span role="img" aria-label={label} title={label} data-testid={`cell-${e.id}-${d.date}`} className={cls}>
+                      <span
+                        role="img"
+                        aria-label={label}
+                        title={label}
+                        data-testid={`cell-${e.id}-${d.date}`}
+                        className={cls}
+                      >
                         {content}
                       </span>
                     )}

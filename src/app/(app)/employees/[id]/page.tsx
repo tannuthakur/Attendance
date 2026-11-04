@@ -44,10 +44,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function EmployeePage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const sp = await searchParams;
-  const tab = activeTab(TABS, sp.tab);
-  const [employee, user, today, settings] = await Promise.all([getEmployee(id), getCurrentUser(), getToday(), getSettings()]);
+  const [employee, user, today, settings] = await Promise.all([
+    getEmployee(id),
+    getCurrentUser(),
+    getToday(),
+    getSettings(),
+  ]);
   if (!employee) notFound();
   const isAdmin = user?.isAdmin ?? false;
+  const seeMoney = user?.can.seeMoney ?? false;
+  // Attendance managers never see invoices or money (§18).
+  const tabs = seeMoney ? TABS : TABS.filter((t) => t.id !== 'invoices');
+  const tab = activeTab(tabs, sp.tab);
   const timeZone = settings.business_timezone;
 
   return (
@@ -68,12 +76,17 @@ export default async function EmployeePage({ params, searchParams }: PageProps) 
         }
         actions={<EmployeeAdminActions employeeId={employee.id} name={employee.name} />}
       />
-      <DetailTabs basePath={`/employees/${employee.id}`} tabs={TABS} active={tab} />
+      <DetailTabs basePath={`/employees/${employee.id}`} tabs={tabs} active={tab} />
 
       {tab === 'overview' && <OverviewTab employee={employee} today={today} timeZone={timeZone} />}
       {tab === 'history' && <HistoryTab employeeId={employee.id} today={today} />}
       {tab === 'projects' && (
-        <ProjectsTab employeeId={employee.id} employeeName={employee.name} today={today} costs={employee.monthly_cost_by_currency} />
+        <ProjectsTab
+          employeeId={employee.id}
+          employeeName={employee.name}
+          today={today}
+          costs={seeMoney ? employee.monthly_cost_by_currency : null}
+        />
       )}
       {tab === 'attendance' && <EmployeeAttendanceTab employeeId={employee.id} searchParams={sp} />}
       {tab === 'night-allowance' && <EmployeeNightAllowanceTab employeeId={employee.id} />}
@@ -88,13 +101,21 @@ type Employee = NonNullable<Awaited<ReturnType<typeof getEmployee>>>;
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-0.5">
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dt className="text-muted-foreground text-xs font-medium">{label}</dt>
       <dd className="text-sm break-words whitespace-pre-line">{children}</dd>
     </div>
   );
 }
 
-async function OverviewTab({ employee, today, timeZone }: { employee: Employee; today: string; timeZone: string }) {
+async function OverviewTab({
+  employee,
+  today,
+  timeZone,
+}: {
+  employee: Employee;
+  today: string;
+  timeZone: string;
+}) {
   const periods = await getEmploymentPeriods(employee.id);
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -163,27 +184,45 @@ async function ProjectsTab({
   employeeId: string;
   employeeName: string;
   today: string;
-  costs: Employee['monthly_cost_by_currency'];
+  /** null hides the cost line (no money for attendance managers). */
+  costs: Employee['monthly_cost_by_currency'] | null;
 }) {
   const [assignments, projects] = await Promise.all([getAssignments({ employeeId }), getProjectOptions()]);
   const totals = costEntries(costs);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Current monthly cost:{' '}
-          <span className="font-medium text-foreground">
-            {totals.length ? totals.map(([c, v]) => formatMoney(v, c)).join(' · ') : '—'}
-          </span>
-        </p>
-        <AssignToProjectDialog employeeId={employeeId} employeeName={employeeName} projects={projects} today={today} />
+        {costs === null ? (
+          <span />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Current monthly cost:{' '}
+            <span className="text-foreground font-medium">
+              {totals.length ? totals.map(([c, v]) => formatMoney(v, c)).join(' · ') : '—'}
+            </span>
+          </p>
+        )}
+        <AssignToProjectDialog
+          employeeId={employeeId}
+          employeeName={employeeName}
+          projects={projects}
+          today={today}
+        />
       </div>
       <AssignmentsTable rows={assignments} mode="employee" today={today} />
     </div>
   );
 }
 
-async function ActivityTab({ employeeId, isAdmin, timeZone }: { employeeId: string; isAdmin: boolean; timeZone: string }) {
+async function ActivityTab({
+  employeeId,
+  isAdmin,
+  timeZone,
+}: {
+  employeeId: string;
+  isAdmin: boolean;
+  timeZone: string;
+}) {
   // Cost changes are logged with parent_id = assignment id, so include the employee's assignments.
   const items = isAdmin
     ? await getActivity([employeeId, ...(await getAssignments({ employeeId })).map((a) => a.id)])

@@ -454,9 +454,20 @@ holidays still read-only); employees **add + edit** (no delete / on-off-role / r
 
 - [x] 20 Migration `20261104000012_attendance_manager.sql` + cloud `08_attendance_manager.sql` + types + seed user
       `manager@example.com` / `Manager@12345` + pgTAP `attendance_manager.test.sql` (45 assertions; 193 total)
-- [ ] 21 App: permissions module, `permittedAction`, middleware `requiredAccess`, CurrentUser `can`, users screen role
-- [ ] 22 UI: nav, employees, attendance, projects, dashboard, night allowance read-only for managers
-- [ ] 23 Tests: unit, integration, e2e `12-attendance-manager` → user runs `08_…sql` → push → CI → Vercel → live check
+- [x] 21 App: `src/lib/auth/permissions.ts` (`can`, `abilitiesFor`), `permittedAction(permission, …)` in
+      `safe-action.ts` (createEmployee / updateEmployee / saveAttendance), `requirePermission(Page)`, middleware
+      `requiredAccess()` + `hasAccess()` (`/employees/new|edit` for managers, `/invoices/**` 403 for managers),
+      `CurrentUser.can` / `useCan()`, Users screen: role select / filter / badge / CSV "Attendance manager".
+- [x] 22 UI: nav hides Invoices; employees list hides cost column (and CSV), New employee + Edit for managers
+      (Delete / On-Off-role stay admin); detail hides Invoices tab and costs; assignments hide cost columns;
+      project detail hides Tasks / Billing cycles / Invoices tabs and money fields; projects list / CSV hide money;
+      dashboard hides invoice KPIs, invoiced chart, invoice widgets; all attendance screens editable for managers.
+      SPEC-NOTE: project tasks carry amounts, so `project_tasks` is hidden from managers as well.
+- [ ] 23 Tests written: unit `permissions` + `admin-paths` (35), component `attendance-manager` (8), integration
+      `attendance-manager` (CI), e2e `12-attendance-manager` (CI; login `manager@example.com`). Local: 579 tests,
+      193 pgTAP, typecheck, lint, build all green.
+      → **user runs `supabase/cloud-setup/08_attendance_manager.sql`** → push → CI → Vercel → live check →
+      admin gives a user the "Attendance manager" role (Admin ▸ Users ▸ Edit).
 
 ## 3c. CI end-to-end tests (first run 28 Oct, commit `a1a458f`)
 - [x] CI pipeline green through lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration

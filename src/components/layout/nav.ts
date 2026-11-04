@@ -12,7 +12,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-export type NavItem = { href: string; label: string; icon: LucideIcon };
+export type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  /** Hidden from attendance managers (§18). */ money?: boolean;
+};
 
 export const MAIN_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -21,7 +26,7 @@ export const MAIN_NAV: NavItem[] = [
   { href: '/attendance', label: 'Attendance', icon: CalendarCheck },
   { href: '/night-allowance', label: 'Night allowance', icon: MoonStar },
   { href: '/holidays', label: 'Holidays', icon: CalendarDays },
-  { href: '/invoices', label: 'Invoices', icon: FileText },
+  { href: '/invoices', label: 'Invoices', icon: FileText, money: true },
 ];
 
 export const ADMIN_NAV: NavItem[] = [

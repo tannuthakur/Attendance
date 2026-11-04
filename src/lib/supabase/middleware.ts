@@ -1,15 +1,26 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@/types/database';
+import { can, type AccessRole, type Permission } from '@/lib/auth/permissions';
 
 const PUBLIC_PATHS = ['/login', '/forgot-password', '/auth/callback', '/auth/signout'];
 
+export type RouteAccess = 'admin' | Permission;
+
 /**
- * Admin-only pages (§17.6). Checked here, before any streaming starts, so viewers get a real HTTP 403 even
- * under a `loading.tsx` boundary (where `forbidden()` would already have sent 200). Pages keep their own check.
+ * Restricted pages (§17.6, §18). Checked here, before any streaming starts, so other roles get a real HTTP 403
+ * even under a `loading.tsx` boundary (where `forbidden()` would already have sent 200). Pages keep their own check.
  */
-export function isAdminOnlyPath(pathname: string) {
-  return pathname === '/admin' || pathname.startsWith('/admin/') || /\/(new|edit)\/?$/.test(pathname);
+export function requiredAccess(pathname: string): RouteAccess | null {
+  const form = /\/(new|edit)\/?$/.test(pathname);
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) return 'admin';
+  if (pathname === '/invoices' || pathname.startsWith('/invoices/')) return form ? 'admin' : 'money.read';
+  if (/^\/employees\/(new|[^/]+\/edit)\/?$/.test(pathname)) return 'employees.write';
+  return form ? 'admin' : null;
+}
+
+export function hasAccess(role: AccessRole, access: RouteAccess) {
+  return role === 'admin' || (access !== 'admin' && can(role, access));
 }
 
 export function isPublicPath(pathname: string) {
@@ -37,20 +48,16 @@ export async function updateSession(request: NextRequest) {
   }
 
   let response = NextResponse.next({ request });
-  const supabase = createServerClient<Database>(
-    url,
-    anonKey,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (toSet) => {
-          toSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          toSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-        },
+  const supabase = createServerClient<Database>(url, anonKey, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll: (toSet) => {
+        toSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        toSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
       },
     },
-  );
+  });
 
   // Must be called to refresh the auth token.
   const {
@@ -65,9 +72,14 @@ export async function updateSession(request: NextRequest) {
     if (pathname !== '/') url.searchParams.set('next', `${pathname}${search}`);
     return NextResponse.redirect(url);
   }
-  if (user && isAdminOnlyPath(pathname)) {
-    const { data: profile } = await supabase.from('profiles').select('access_role, is_active').eq('id', user.id).maybeSingle();
-    if (profile && !(profile.access_role === 'admin' && profile.is_active)) {
+  const access = user ? requiredAccess(pathname) : null;
+  if (user && access) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('access_role, is_active')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (profile && !(profile.is_active && hasAccess(profile.access_role, access))) {
       const url = request.nextUrl.clone();
       url.pathname = '/access-denied';
       url.search = '';

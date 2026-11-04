@@ -3,7 +3,8 @@ import { revalidatePath } from 'next/cache';
 import type { z } from 'zod';
 import { fail, ok, type ActionResult } from './action-result';
 import { mapDbError } from './db-errors';
-import { requireAdmin } from './auth/require-admin';
+import { requireAdmin, requirePermission } from './auth/require-admin';
+import type { Permission } from './auth/permissions';
 import { ForbiddenError, UnauthenticatedError } from './auth/errors';
 import { createClient, type ServerClient } from './supabase/server';
 import type { CurrentUser } from './auth/get-user';
@@ -18,7 +19,10 @@ export class DbError extends Error {
 }
 
 /** Throw inside an action body when a Supabase call returns an error. */
-export function check<T>(res: { data: T; error: DbError['pg'] | null }, overrides?: Partial<Record<string, string>>): T {
+export function check<T>(
+  res: { data: T; error: DbError['pg'] | null },
+  overrides?: Partial<Record<string, string>>,
+): T {
   if (res.error) throw new DbError(res.error, overrides);
   return res.data;
 }
@@ -41,11 +45,34 @@ type Ctx = { user: CurrentUser; supabase: ServerClient };
 export function adminAction<S extends z.ZodType, T>(
   schema: S,
   body: (input: z.infer<S>, ctx: Ctx) => Promise<T>,
-  options: { revalidate?: string[] | ((input: z.infer<S>, result: T) => string[]) } = {},
+  options: ActionOptions<S, T> = {},
+) {
+  return guardedAction(requireAdmin, schema, body, options);
+}
+
+/** Like `adminAction`, for a mutation other roles may also run (§18, e.g. attendance managers). */
+export function permittedAction<S extends z.ZodType, T>(
+  permission: Permission,
+  schema: S,
+  body: (input: z.infer<S>, ctx: Ctx) => Promise<T>,
+  options: ActionOptions<S, T> = {},
+) {
+  return guardedAction(() => requirePermission(permission), schema, body, options);
+}
+
+type ActionOptions<S extends z.ZodType, T> = {
+  revalidate?: string[] | ((input: z.infer<S>, result: T) => string[]);
+};
+
+function guardedAction<S extends z.ZodType, T>(
+  guard: () => Promise<CurrentUser>,
+  schema: S,
+  body: (input: z.infer<S>, ctx: Ctx) => Promise<T>,
+  options: ActionOptions<S, T>,
 ) {
   return async (raw: z.input<S>): Promise<ActionResult<T>> => {
     try {
-      const user = await requireAdmin();
+      const user = await guard();
       const parsed = schema.safeParse(raw);
       if (!parsed.success) {
         const fieldErrors: Record<string, string[]> = {};
@@ -58,7 +85,9 @@ export function adminAction<S extends z.ZodType, T>(
       const supabase = await createClient();
       const data = await body(parsed.data, { user, supabase });
       const paths =
-        typeof options.revalidate === 'function' ? options.revalidate(parsed.data, data) : (options.revalidate ?? []);
+        typeof options.revalidate === 'function'
+          ? options.revalidate(parsed.data, data)
+          : (options.revalidate ?? []);
       paths.forEach((p) => revalidatePath(p));
       return ok(data);
     } catch (e) {

@@ -12,6 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { useCan } from '@/components/providers/current-user';
 import type { SearchResult } from '@/features/search/queries';
 
 const ICONS = { employee: User, project: FolderKanban, invoice: FileText };
@@ -23,6 +24,8 @@ const GROUPS: Array<[SearchResult['type'], string]> = [
 
 export function GlobalSearch() {
   const router = useRouter();
+  // Attendance managers can't see invoices (§18; RLS returns none anyway).
+  const scope = useCan().seeMoney ? 'employees, projects, invoices' : 'employees, projects';
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -64,14 +67,21 @@ export function GlobalSearch() {
 
   return (
     <>
-      <Button variant="outline" size="sm" className="w-full justify-start text-muted-foreground sm:w-72" onClick={() => setOpen(true)}>
-        <Search aria-hidden /> Search employees, projects, invoices…
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-muted-foreground w-full justify-start sm:w-72"
+        onClick={() => setOpen(true)}
+      >
+        <Search aria-hidden /> Search {scope}…
         <kbd className="ml-auto hidden rounded border px-1 text-[10px] sm:inline">⌘K</kbd>
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen} shouldFilter={false} title="Search">
         <CommandInput placeholder="Type at least 2 characters…" value={q} onValueChange={setQ} />
         <CommandList>
-          <CommandEmpty>{loading ? 'Searching…' : q.length < 2 ? 'Start typing to search.' : 'No results.'}</CommandEmpty>
+          <CommandEmpty>
+            {loading ? 'Searching…' : q.length < 2 ? 'Start typing to search.' : 'No results.'}
+          </CommandEmpty>
           {GROUPS.map(([type, heading]) => {
             const items = results.filter((r) => r.type === type);
             if (!items.length) return null;
@@ -92,7 +102,7 @@ export function GlobalSearch() {
                     <Icon aria-hidden />
                     <div className="flex flex-col">
                       <span>{r.title}</span>
-                      <span className="text-xs text-muted-foreground">{r.subtitle}</span>
+                      <span className="text-muted-foreground text-xs">{r.subtitle}</span>
                     </div>
                   </CommandItem>
                 ))}

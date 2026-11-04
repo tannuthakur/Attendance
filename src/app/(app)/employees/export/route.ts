@@ -9,7 +9,8 @@ import { EMPLOYEE_STATUS_LABELS } from '@/lib/format';
 
 /** CSV of the current filtered/sorted employee list (§6 common list behaviour). */
 export async function GET(request: NextRequest) {
-  if (!(await getCurrentUser())) return new Response('Unauthorized', { status: 401 });
+  const user = await getCurrentUser();
+  if (!user) return new Response('Unauthorized', { status: 401 });
   const params = parseListParams(request.nextUrl.searchParams, employeeListConfig);
   const { rows } = await listEmployees(params, { all: true });
   return csvResponse('employees.csv', rows, [
@@ -21,13 +22,22 @@ export async function GET(request: NextRequest) {
     { header: 'Designation', value: (r) => r.designation_name },
     {
       header: 'Status',
-      value: (r) => EMPLOYEE_STATUS_LABELS[r.current_status as keyof typeof EMPLOYEE_STATUS_LABELS] ?? r.current_status,
+      value: (r) =>
+        EMPLOYEE_STATUS_LABELS[r.current_status as keyof typeof EMPLOYEE_STATUS_LABELS] ?? r.current_status,
     },
     { header: 'Start date', value: (r) => r.start_date },
     { header: 'End date', value: (r) => r.end_date },
     { header: 'First joined', value: (r) => r.first_joined_on },
     { header: 'Active projects', value: (r) => r.active_project_count },
     { header: 'Project names', value: (r) => r.active_project_names },
-    { header: 'Total monthly cost', value: (r) => formatCostByCurrency(r.monthly_cost_by_currency) },
+    // Attendance managers never see money (§18).
+    ...(user.can.seeMoney
+      ? [
+          {
+            header: 'Total monthly cost',
+            value: (r: (typeof rows)[number]) => formatCostByCurrency(r.monthly_cost_by_currency),
+          },
+        ]
+      : []),
   ]);
 }

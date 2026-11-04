@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProjectStatusBadge } from '@/components/status-badge';
 import { formatDate, formatDateTime, WEEKDAYS } from '@/lib/dates';
 import { formatMoney } from '@/lib/format';
+import { getCurrentUser } from '@/lib/auth/get-user';
 import { getEmployeeOptions, getSettings, getToday } from '@/features/lookups/queries';
 import { activeTab, DetailTabs, type DetailTab } from '@/features/employees/components/detail-tabs';
 import { getAssignments, getProject, getStatusEvents } from '@/features/projects/queries';
@@ -28,9 +29,14 @@ const ALL_TABS: DetailTab[] = [
   { id: 'invoices', label: 'Invoices' },
 ];
 
-/** Projects without a monthly billing cycle (task-only billing) have no "Billing cycles" tab. */
-function tabsFor(hasCycle: boolean): DetailTab[] {
-  return hasCycle ? ALL_TABS : ALL_TABS.filter((t) => t.id !== 'cycles');
+const MONEY_TABS = new Set(['tasks', 'cycles', 'invoices']);
+
+/**
+ * Projects without a monthly billing cycle (task-only billing) have no "Billing cycles" tab; attendance managers
+ * see no money tabs (§18).
+ */
+function tabsFor(hasCycle: boolean, seeMoney: boolean): DetailTab[] {
+  return ALL_TABS.filter((t) => (hasCycle || t.id !== 'cycles') && (seeMoney || !MONEY_TABS.has(t.id)));
 }
 
 type PageProps = {
@@ -46,9 +52,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ProjectPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const sp = await searchParams;
-  const [project, today, settings] = await Promise.all([getProject(id), getToday(), getSettings()]);
+  const [project, today, settings, user] = await Promise.all([
+    getProject(id),
+    getToday(),
+    getSettings(),
+    getCurrentUser(),
+  ]);
   if (!project) notFound();
-  const tabs = tabsFor(project.billing_cycle_start_date !== null);
+  const seeMoney = user?.can.seeMoney ?? false;
+  const tabs = tabsFor(project.billing_cycle_start_date !== null, seeMoney);
   const tab = activeTab(tabs, sp.tab);
 
   return (
@@ -70,8 +82,15 @@ export default async function ProjectPage({ params, searchParams }: PageProps) {
       />
       <DetailTabs basePath={`/projects/${project.id}`} tabs={tabs} active={tab} />
 
-      {tab === 'overview' && <OverviewTab project={project} today={today} timeZone={settings.business_timezone} />}
-      {tab === 'team' && <TeamTab project={project} today={today} />}
+      {tab === 'overview' && (
+        <OverviewTab
+          project={project}
+          today={today}
+          timeZone={settings.business_timezone}
+          seeMoney={seeMoney}
+        />
+      )}
+      {tab === 'team' && <TeamTab project={project} today={today} seeMoney={seeMoney} />}
       {tab === 'attendance' && <ProjectAttendanceTab projectId={project.id} searchParams={sp} />}
       {tab === 'tasks' && <ProjectTasksTab projectId={project.id} currency={project.currency} />}
       {tab === 'cycles' && <ProjectBillingCyclesTab projectId={project.id} />}
@@ -85,13 +104,23 @@ type Project = NonNullable<Awaited<ReturnType<typeof getProject>>>;
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-0.5">
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dt className="text-muted-foreground text-xs font-medium">{label}</dt>
       <dd className="text-sm break-words whitespace-pre-line">{children}</dd>
     </div>
   );
 }
 
-async function OverviewTab({ project, today, timeZone }: { project: Project; today: string; timeZone: string }) {
+async function OverviewTab({
+  project,
+  today,
+  timeZone,
+  seeMoney,
+}: {
+  project: Project;
+  today: string;
+  timeZone: string;
+  seeMoney: boolean;
+}) {
   const events = await getStatusEvents(project.id);
   const lastEventDate = events.at(-1)?.effective_date ?? null;
   return (
@@ -109,11 +138,12 @@ async function OverviewTab({ project, today, timeZone }: { project: Project; tod
             {project.billing_cycle_start_date ? (
               <>
                 <Field label="First billing cycle">
-                  {formatDate(project.billing_cycle_start_date)} – {formatDate(project.billing_cycle_end_date)}
+                  {formatDate(project.billing_cycle_start_date)} –{' '}
+                  {formatDate(project.billing_cycle_end_date)}
                 </Field>
                 <Field label="Current cycle">
-                  {formatDate(project.current_cycle_start)} – {formatDate(project.current_cycle_end)} (anchor day{' '}
-                  {project.billing_anchor_day})
+                  {formatDate(project.current_cycle_start)} – {formatDate(project.current_cycle_end)} (anchor
+                  day {project.billing_anchor_day})
                 </Field>
               </>
             ) : (
@@ -124,9 +154,13 @@ async function OverviewTab({ project, today, timeZone }: { project: Project; tod
             </Field>
             <Field label="Payment terms">{project.payment_terms_days} days</Field>
             <Field label="Assigned employees">{project.employee_count}</Field>
-            <Field label="Monthly value">{formatMoney(project.monthly_value, project.currency)}</Field>
-            <Field label="Invoice title">{project.invoice_title}</Field>
-            <Field label="Invoice to">{project.invoice_to}</Field>
+            {seeMoney && (
+              <>
+                <Field label="Monthly value">{formatMoney(project.monthly_value, project.currency)}</Field>
+                <Field label="Invoice title">{project.invoice_title}</Field>
+                <Field label="Invoice to">{project.invoice_to}</Field>
+              </>
+            )}
             <Field label="Created">{formatDateTime(project.created_at, timeZone)}</Field>
             <div className="sm:col-span-2">
               <Field label="Notes">{project.notes ?? '—'}</Field>
@@ -140,7 +174,7 @@ async function OverviewTab({ project, today, timeZone }: { project: Project; tod
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Current:</span>
+            <span className="text-muted-foreground text-sm">Current:</span>
             <ProjectStatusBadge status={project.status} />
           </div>
           <ProjectStatusActions
@@ -157,15 +191,26 @@ async function OverviewTab({ project, today, timeZone }: { project: Project; tod
   );
 }
 
-async function TeamTab({ project, today }: { project: Project; today: string }) {
-  const [assignments, employees] = await Promise.all([getAssignments({ projectId: project.id }), getEmployeeOptions()]);
+async function TeamTab({ project, today, seeMoney }: { project: Project; today: string; seeMoney: boolean }) {
+  const [assignments, employees] = await Promise.all([
+    getAssignments({ projectId: project.id }),
+    getEmployeeOptions(),
+  ]);
   const assignedIds = assignments.filter((a) => !a.end_date || a.end_date >= today).map((a) => a.employee_id);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          {project.employee_count} active · monthly value{' '}
-          <span className="font-medium text-foreground">{formatMoney(project.monthly_value, project.currency)}</span>
+        <p className="text-muted-foreground text-sm">
+          {project.employee_count} active
+          {seeMoney && (
+            <>
+              {' '}
+              · monthly value{' '}
+              <span className="text-foreground font-medium">
+                {formatMoney(project.monthly_value, project.currency)}
+              </span>
+            </>
+          )}
         </p>
         <AssignEmployeesDialog
           projectId={project.id}

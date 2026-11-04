@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { passwordSchema } from '@/features/auth/schemas';
+import { ACCESS_ROLES } from '@/lib/auth/permissions';
 
-export const ACCESS_ROLES = ['admin', 'viewer'] as const;
+export { ACCESS_ROLES };
 export const accessRoleSchema = z.enum(ACCESS_ROLES, 'Select an access role');
 
 const fullName = z.string().trim().min(1, 'Name is required').max(120, 'Name is too long');
@@ -20,7 +21,11 @@ export const createUserSchema = z
     if (v.mode !== 'password') return;
     const res = passwordSchema.safeParse(v.password ?? '');
     if (!res.success) {
-      ctx.addIssue({ code: 'custom', path: ['password'], message: res.error.issues[0]?.message ?? 'Invalid password' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['password'],
+        message: res.error.issues[0]?.message ?? 'Invalid password',
+      });
     }
   });
 

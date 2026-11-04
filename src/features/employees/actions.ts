@@ -1,5 +1,5 @@
 'use server';
-import { ActionFailure, adminAction, check } from '@/lib/safe-action';
+import { ActionFailure, adminAction, check, permittedAction } from '@/lib/safe-action';
 import type { ServerClient } from '@/lib/supabase/server';
 import {
   emptyToNull,
@@ -37,7 +37,8 @@ async function assertEmailFree(supabase: ServerClient, email: string, exceptId?:
 
 const employeePaths = (id?: string) => ['/employees', '/dashboard', ...(id ? [`/employees/${id}`] : [])];
 
-export const createEmployee = adminAction(
+export const createEmployee = permittedAction(
+  'employees.write',
   employeeSchema,
   async (input, { supabase }) => {
     await assertEmailFree(supabase, input.email);
@@ -50,13 +51,18 @@ export const createEmployee = adminAction(
 );
 
 /** Editing start/end updates the most recent employment period (DB trigger). */
-export const updateEmployee = adminAction(
+export const updateEmployee = permittedAction(
+  'employees.write',
   updateEmployeeSchema,
   async ({ id, ...input }, { supabase }) => {
     await assertEmailFree(supabase, input.email, id);
     const row = check(
       await supabase.from('employees').update(toRow(input)).eq('id', id).select('id, code').maybeSingle(),
-      { DUPLICATE: DUPLICATE_EMAIL_MESSAGE, OVERLAP: PERIOD_OVERLAP_MESSAGE, INVALID: 'End date cannot be before the start date' },
+      {
+        DUPLICATE: DUPLICATE_EMAIL_MESSAGE,
+        OVERLAP: PERIOD_OVERLAP_MESSAGE,
+        INVALID: 'End date cannot be before the start date',
+      },
     );
     if (!row) throw new ActionFailure('EMPLOYEE_NOT_FOUND', 'Employee not found');
     return row;

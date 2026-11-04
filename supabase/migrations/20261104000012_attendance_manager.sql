@@ -132,13 +132,14 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Money: invoices and assignment rates are hidden from attendance managers
+-- Money: invoices, task amounts and assignment rates are hidden from attendance managers
 -- ---------------------------------------------------------------------------
 do $$
 declare
   t text;
 begin
-  foreach t in array array['invoices', 'invoice_lines', 'invoice_events', 'invoice_number_sequences', 'assignment_rates'] loop
+  foreach t in array array['invoices', 'invoice_lines', 'invoice_events', 'invoice_number_sequences', 'assignment_rates',
+                         'project_tasks'] loop
     execute format('drop policy if exists %I on public.%I', t || '_select', t);
     execute format('create policy %I on public.%I for select to authenticated using (public.can_see_money())',
                    t || '_select', t);

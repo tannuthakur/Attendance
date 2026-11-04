@@ -4,7 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Plus } from 'lucide-react';
 import { DataTable, type FilterField, type FilterOption } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
-import { AdminOnly } from '@/components/providers/current-user';
+import { AdminOnly, useCan } from '@/components/providers/current-user';
 import { InvoiceStatusBadge, ProjectStatusBadge } from '@/components/status-badge';
 import { formatDate, WEEKDAYS } from '@/lib/dates';
 import { formatMoney, PROJECT_STATUS_LABELS } from '@/lib/format';
@@ -75,7 +75,7 @@ const columns: ColumnDef<ProjectListRow, unknown>[] = [
           <Link href={`/invoices/${r.last_invoice_id}`} className="font-mono text-xs hover:underline">
             {r.last_invoice_number}
           </Link>
-          <span className="text-xs text-muted-foreground">{formatDate(r.last_invoice_date)}</span>
+          <span className="text-muted-foreground text-xs">{formatDate(r.last_invoice_date)}</span>
           {r.last_invoice_status && <InvoiceStatusBadge status={r.last_invoice_status} />}
         </div>
       );
@@ -94,9 +94,15 @@ type Props = {
 
 const STATUS_OPTIONS = Object.entries(PROJECT_STATUS_LABELS).map(([value, label]) => ({ value, label }));
 const WEEKEND_OPTIONS = [1, 2, 3, 4, 5, 6, 0].map((d) => ({ value: String(d), label: WEEKDAYS[d] }));
-const ANCHOR_OPTIONS = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: `Day ${i + 1}` }));
+const ANCHOR_OPTIONS = Array.from({ length: 31 }, (_, i) => ({
+  value: String(i + 1),
+  label: `Day ${i + 1}`,
+}));
+
+const MONEY_COLUMNS = new Set(['monthly_value', 'last_invoice_date']);
 
 export function ProjectsTable({ rows, total, params, clients, currencies, employees }: Props) {
+  const { seeMoney } = useCan();
   const filters: FilterField[] = [
     { key: 'status', label: 'Status', type: 'multi', options: STATUS_OPTIONS },
     { key: 'client', label: 'Client', type: 'multi', options: clients },
@@ -104,13 +110,14 @@ export function ProjectsTable({ rows, total, params, clients, currencies, employ
     { key: 'employee', label: 'Employee assigned', type: 'multi', options: employees },
     { key: 'weekend', label: 'Weekend days', type: 'multi', options: WEEKEND_OPTIONS },
     { key: 'anchor_day', label: 'Billing anchor day', type: 'single', options: ANCHOR_OPTIONS },
-    { key: 'unpaid', label: 'Unpaid invoice', type: 'boolean' },
+    ...(seeMoney ? [{ key: 'unpaid', label: 'Unpaid invoice', type: 'boolean' } as const] : []),
     { key: 'created', label: 'Created', type: 'dateRange' },
   ];
   return (
     <DataTable
       tableId="projects"
-      columns={columns}
+      // Attendance managers see no money (§18).
+      columns={seeMoney ? columns : columns.filter((c) => !MONEY_COLUMNS.has(c.id ?? ''))}
       data={rows}
       total={total}
       params={params}

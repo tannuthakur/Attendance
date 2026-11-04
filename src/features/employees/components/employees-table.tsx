@@ -4,7 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Plus } from 'lucide-react';
 import { DataTable, type FilterField, type FilterOption } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
-import { AdminOnly } from '@/components/providers/current-user';
+import { useCan } from '@/components/providers/current-user';
 import { EmployeeStatusBadge } from '@/components/status-badge';
 import { formatDate } from '@/lib/dates';
 import { formatMoney } from '@/lib/format';
@@ -67,7 +67,7 @@ const columns: ColumnDef<EmployeeListRow, unknown>[] = [
       ) : (
         <span title={row.original.active_project_names.join(', ')}>
           <span className="font-medium">{row.original.active_project_count}</span>
-          <span className="ml-1 text-muted-foreground">· {row.original.active_project_names.join(', ')}</span>
+          <span className="text-muted-foreground ml-1">· {row.original.active_project_names.join(', ')}</span>
         </span>
       ),
   },
@@ -99,6 +99,7 @@ type Props = {
 };
 
 export function EmployeesTable({ rows, total, params, jobRoles, designations, projects }: Props) {
+  const can = useCan();
   const filters: FilterField[] = [
     { key: 'job_role', label: 'Job role', type: 'multi', options: jobRoles },
     { key: 'designation', label: 'Designation', type: 'multi', options: designations },
@@ -128,7 +129,7 @@ export function EmployeesTable({ rows, total, params, jobRoles, designations, pr
   return (
     <DataTable
       tableId="employees"
-      columns={columns}
+      columns={can.seeMoney ? columns : columns.filter((c) => c.id !== 'monthly_cost')}
       data={rows}
       total={total}
       params={params}
@@ -139,13 +140,13 @@ export function EmployeesTable({ rows, total, params, jobRoles, designations, pr
       getRowId={(r) => r.id}
       emptyState="No employees match your filters."
       actions={
-        <AdminOnly>
+        can.manageEmployees && (
           <Button size="sm" className="h-8" asChild>
             <Link href="/employees/new">
               <Plus aria-hidden /> New employee
             </Link>
           </Button>
-        </AdminOnly>
+        )
       }
     />
   );

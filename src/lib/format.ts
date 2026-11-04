@@ -23,7 +23,11 @@ export function formatDays(value: Decimal.Value | null | undefined): string {
   return new Decimal(value).toDecimalPlaces(2).toString();
 }
 
-export const ACCESS_ROLE_LABELS = { admin: 'Admin', viewer: 'Viewer' } as const;
+export const ACCESS_ROLE_LABELS = {
+  admin: 'Admin',
+  attendance_manager: 'Attendance manager',
+  viewer: 'Viewer',
+} as const;
 export const PROJECT_STATUS_LABELS = {
   not_started: 'Not started',
   active: 'Active',
@@ -31,5 +35,10 @@ export const PROJECT_STATUS_LABELS = {
   ended: 'Ended',
   cancelled: 'Cancelled',
 } as const;
-export const INVOICE_STATUS_LABELS = { draft: 'Draft', issued: 'Issued', paid: 'Paid', void: 'Void' } as const;
+export const INVOICE_STATUS_LABELS = {
+  draft: 'Draft',
+  issued: 'Issued',
+  paid: 'Paid',
+  void: 'Void',
+} as const;
 export const EMPLOYEE_STATUS_LABELS = { on_role: 'On-role', off_role: 'Off-role' } as const;

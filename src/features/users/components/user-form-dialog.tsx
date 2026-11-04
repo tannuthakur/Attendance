@@ -20,14 +20,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import type { ActionResult } from '@/lib/action-result';
+import type { AccessRole } from '@/lib/auth/permissions';
 import { ACCESS_ROLE_LABELS } from '@/lib/format';
 import { createUserSchema, updateUserSchema, type CreateUserInput, type UpdateUserInput } from '../schemas';
 import { createUser, updateUser } from '../actions';
 
 /** Applies server-side field errors to the form; returns the message to show otherwise. */
-function applyResult<T extends FieldValues>(form: UseFormReturn<T>, res: ActionResult<unknown>): string | undefined {
+function applyResult<T extends FieldValues>(
+  form: UseFormReturn<T>,
+  res: ActionResult<unknown>,
+): string | undefined {
   if (res.ok) return undefined;
   for (const [key, messages] of Object.entries(res.error.fieldErrors ?? {})) {
     if (key !== '_form') form.setError(key as FieldPath<T>, { message: messages[0] });
@@ -59,6 +71,9 @@ function AccessRoleField<T extends FieldValues>({
             </FormControl>
             <SelectContent>
               <SelectItem value="viewer">{ACCESS_ROLE_LABELS.viewer} – read only</SelectItem>
+              <SelectItem value="attendance_manager">
+                {ACCESS_ROLE_LABELS.attendance_manager} – employees, attendance, night allowance (no invoices)
+              </SelectItem>
               <SelectItem value="admin">{ACCESS_ROLE_LABELS.admin} – full access</SelectItem>
             </SelectContent>
           </Select>
@@ -113,12 +128,15 @@ export function CreateUserDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add user</DialogTitle>
-          <DialogDescription>Admins have full access; viewers can only read.</DialogDescription>
+          <DialogDescription>
+            Admins have full access; attendance managers add employees and mark attendance; viewers can only
+            read.
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
             {error && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-destructive text-sm">
                 {error}
               </p>
             )}
@@ -183,18 +201,31 @@ export function CreateUserDialog() {
                   <FormItem>
                     <FormLabel>Temporary password</FormLabel>
                     <FormControl>
-                      <Input type="password" autoComplete="new-password" {...field} value={field.value ?? ''} />
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        {...field}
+                        value={field.value ?? ''}
+                      />
                     </FormControl>
-                    <FormDescription>Share it securely; the user can change it after signing in.</FormDescription>
+                    <FormDescription>
+                      Share it securely; the user can change it after signing in.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             ) : (
-              <p className="text-sm text-muted-foreground">The user receives an email link to choose a password.</p>
+              <p className="text-muted-foreground text-sm">
+                The user receives an email link to choose a password.
+              </p>
             )}
             <DialogFooter>
-              <LoadingButton type="submit" pending={pending} pendingLabel={mode === 'invite' ? 'Sending…' : 'Creating…'}>
+              <LoadingButton
+                type="submit"
+                pending={pending}
+                pendingLabel={mode === 'invite' ? 'Sending…' : 'Creating…'}
+              >
                 {mode === 'invite' ? 'Send invite' : 'Create user'}
               </LoadingButton>
             </DialogFooter>
@@ -206,7 +237,7 @@ export function CreateUserDialog() {
 }
 
 type EditProps = {
-  user: { id: string; full_name: string; email: string; access_role: 'admin' | 'viewer'; is_active: boolean };
+  user: { id: string; full_name: string; email: string; access_role: AccessRole; is_active: boolean };
   isSelf: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -217,7 +248,12 @@ export function EditUserDialog({ user, isSelf, open, onOpenChange }: EditProps) 
   const [pending, startTransition] = useTransition();
   const form = useForm<UpdateUserInput>({
     resolver: zodResolver(updateUserSchema),
-    values: { id: user.id, full_name: user.full_name, access_role: user.access_role, is_active: user.is_active },
+    values: {
+      id: user.id,
+      full_name: user.full_name,
+      access_role: user.access_role,
+      is_active: user.is_active,
+    },
   });
 
   const onSubmit = (values: UpdateUserInput) =>
@@ -249,7 +285,7 @@ export function EditUserDialog({ user, isSelf, open, onOpenChange }: EditProps) 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
             {error && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-destructive text-sm">
                 {error}
               </p>
             )}

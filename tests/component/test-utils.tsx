@@ -3,6 +3,7 @@ import { render } from '@testing-library/react';
 import { vi } from 'vitest';
 import { CurrentUserProvider, type ClientUser } from '@/components/providers/current-user';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { abilitiesFor } from '@/lib/auth/permissions';
 
 /** Shared next/navigation mock state for component tests. */
 export const nav = {
@@ -14,15 +15,41 @@ export const nav = {
 };
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: nav.push, replace: nav.replace, refresh: nav.refresh, back: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => ({
+    push: nav.push,
+    replace: nav.replace,
+    refresh: nav.refresh,
+    back: vi.fn(),
+    prefetch: vi.fn(),
+  }),
   usePathname: () => nav.pathname,
   useSearchParams: () => nav.search,
   redirect: vi.fn(),
   notFound: vi.fn(),
 }));
 
-export const ADMIN: ClientUser = { id: 'u-admin', name: 'Ada Admin', email: 'ada@test.local', isAdmin: true, timezone: 'Asia/Qatar' };
-export const VIEWER: ClientUser = { ...ADMIN, id: 'u-viewer', name: 'Vic Viewer', isAdmin: false };
+export const ADMIN: ClientUser = {
+  id: 'u-admin',
+  name: 'Ada Admin',
+  email: 'ada@test.local',
+  isAdmin: true,
+  can: abilitiesFor('admin'),
+  timezone: 'Asia/Qatar',
+};
+export const VIEWER: ClientUser = {
+  ...ADMIN,
+  id: 'u-viewer',
+  name: 'Vic Viewer',
+  isAdmin: false,
+  can: abilitiesFor('viewer'),
+};
+export const MANAGER: ClientUser = {
+  ...ADMIN,
+  id: 'u-manager',
+  name: 'Mia Manager',
+  isAdmin: false,
+  can: abilitiesFor('attendance_manager'),
+};
 
 export function renderWithUser(ui: ReactElement, user: ClientUser = ADMIN) {
   const Wrapper = ({ children }: { children: ReactNode }) => (

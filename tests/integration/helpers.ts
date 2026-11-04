@@ -28,7 +28,7 @@ export function signOutTestUser() {
 const cache = new Map<string, Client>();
 
 /** Create (once) a user with the given access role and make it the acting user. */
-export async function actAs(role: 'admin' | 'viewer', opts: { email?: string; active?: boolean } = {}): Promise<{ client: Client; userId: string; email: string }> {
+export async function actAs(role: 'admin' | 'viewer' | 'attendance_manager', opts: { email?: string; active?: boolean } = {}): Promise<{ client: Client; userId: string; email: string }> {
   const email = opts.email ?? `it-${role}@test.local`;
   const password = 'Test@12345';
   const key = `${email}:${opts.active ?? true}`;

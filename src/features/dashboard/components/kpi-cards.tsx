@@ -13,7 +13,7 @@ function KpiCard({ title, icon, children }: { title: string; icon: ReactNode; ch
   return (
     <Card className="gap-4 py-5">
       <CardHeader className="px-5">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
           {icon}
           <h2>{title}</h2>
         </CardTitle>
@@ -40,18 +40,23 @@ export function Stat({
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-md p-2 -m-2 outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="group hover:bg-accent focus-visible:ring-ring/50 -m-2 flex flex-col rounded-md p-2 outline-none focus-visible:ring-[3px]"
     >
       <span
         className={cn(
-          'text-2xl font-semibold tabular-nums tracking-tight',
+          'text-2xl font-semibold tracking-tight tabular-nums',
           emphasis === 'danger' && value !== 0 && 'text-destructive',
         )}
       >
         {value}
       </span>
-      <span className="flex items-center gap-1.5 text-xs text-muted-foreground group-hover:text-foreground">
-        {swatch && <span aria-hidden className={cn('size-2 rounded-full', COLOR_SWATCH[swatch] ?? COLOR_SWATCH.gray)} />}
+      <span className="text-muted-foreground group-hover:text-foreground flex items-center gap-1.5 text-xs">
+        {swatch && (
+          <span
+            aria-hidden
+            className={cn('size-2 rounded-full', COLOR_SWATCH[swatch] ?? COLOR_SWATCH.gray)}
+          />
+        )}
         {label}
       </span>
     </Link>
@@ -71,7 +76,7 @@ function MoneyList({
 }) {
   return (
     <div className="space-y-1">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-muted-foreground text-xs">{label}</p>
       {amounts.length === 0 ? (
         <Link href={emptyHref} className="text-lg font-semibold tabular-nums hover:underline">
           None
@@ -114,7 +119,12 @@ export function ProjectKpiCard({ kpis }: { kpis: ProjectKpis }) {
       <div className="grid grid-cols-2 gap-4">
         <Stat label="Active" value={kpis.active} href={links.projects.byStatus('active')} swatch="green" />
         <Stat label="Paused" value={kpis.paused} href={links.projects.byStatus('paused')} swatch="amber" />
-        <Stat label="Not started" value={kpis.notStarted} href={links.projects.byStatus('not_started')} swatch="gray" />
+        <Stat
+          label="Not started"
+          value={kpis.notStarted}
+          href={links.projects.byStatus('not_started')}
+          swatch="gray"
+        />
         <Stat
           label="Ended / cancelled"
           value={kpis.endedOrCancelled}
@@ -131,7 +141,13 @@ export function AttendanceKpiCard({ kpis, today }: { kpis: AttendanceKpis; today
     <KpiCard title="Today's attendance" icon={<CalendarCheck className="size-4" aria-hidden />}>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {kpis.byStatus.map((s) => (
-          <Stat key={s.code} label={s.label} value={s.count} href={links.attendance.status(s.code, today)} swatch={s.color} />
+          <Stat
+            key={s.code}
+            label={s.label}
+            value={s.count}
+            href={links.attendance.status(s.code, today)}
+            swatch={s.color}
+          />
         ))}
         <Stat label="Not marked" value={kpis.notMarked} href={links.attendance.notMarked()} />
       </div>
@@ -167,14 +183,18 @@ export function DashboardKpis(props: {
   employees: EmployeeKpis;
   projects: ProjectKpis;
   attendance: AttendanceKpis;
-  invoices: InvoiceKpis;
+  /** null for attendance managers, who see no money (§18). */
+  invoices: InvoiceKpis | null;
 }) {
   return (
-    <section aria-label="Key figures" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <section
+      aria-label="Key figures"
+      className={cn('grid gap-4 md:grid-cols-2', props.invoices ? 'xl:grid-cols-4' : 'xl:grid-cols-3')}
+    >
       <EmployeeKpiCard kpis={props.employees} />
       <ProjectKpiCard kpis={props.projects} />
       <AttendanceKpiCard kpis={props.attendance} today={props.today} />
-      <InvoiceKpiCard kpis={props.invoices} today={props.today} />
+      {props.invoices && <InvoiceKpiCard kpis={props.invoices} today={props.today} />}
     </section>
   );
 }

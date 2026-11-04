@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCurrentUser } from '@/components/providers/current-user';
 import { formatDateTime } from '@/lib/dates';
+import { ACCESS_ROLES, type AccessRole } from '@/lib/auth/permissions';
 import { ACCESS_ROLE_LABELS } from '@/lib/format';
 import type { ListParams } from '@/lib/list-params';
 import { usersListConfig, type UsersListConfig } from '../list-config';
@@ -20,20 +21,19 @@ export type UserTableRow = {
   id: string;
   full_name: string;
   email: string;
-  access_role: 'admin' | 'viewer';
+  access_role: AccessRole;
   is_active: boolean;
   last_login_at: string | null;
 };
+
+const ROLE_COLORS = { admin: 'purple', attendance_manager: 'blue', viewer: 'gray' } as const;
 
 const FILTERS: FilterField[] = [
   {
     key: 'access_role',
     label: 'Access role',
     type: 'multi',
-    options: [
-      { value: 'admin', label: ACCESS_ROLE_LABELS.admin },
-      { value: 'viewer', label: ACCESS_ROLE_LABELS.viewer },
-    ],
+    options: ACCESS_ROLES.map((r) => ({ value: r, label: ACCESS_ROLE_LABELS[r] })),
   },
   {
     key: 'active',
@@ -77,7 +77,12 @@ function RowActions({ user, isSelf, onEdit }: { user: UserTableRow; isSelf: bool
       </IconAction>
       <ConfirmDialog
         trigger={
-          <Button variant="ghost" size="icon" className="size-8" aria-label={`Reset password for ${user.full_name}`}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label={`Reset password for ${user.full_name}`}
+          >
             <KeyRound aria-hidden />
           </Button>
         }
@@ -131,7 +136,7 @@ export function UsersTable({ rows, total, params }: Props) {
         cell: ({ row }) => (
           <span className="font-medium">
             {row.original.full_name}
-            {row.original.id === me?.id && <span className="ml-1 text-xs text-muted-foreground">(you)</span>}
+            {row.original.id === me?.id && <span className="text-muted-foreground ml-1 text-xs">(you)</span>}
           </span>
         ),
       },
@@ -141,7 +146,7 @@ export function UsersTable({ rows, total, params }: Props) {
         accessorKey: 'access_role',
         meta: { label: 'Access role' },
         cell: ({ row }) => (
-          <ColorBadge color={row.original.access_role === 'admin' ? 'purple' : 'gray'}>
+          <ColorBadge color={ROLE_COLORS[row.original.access_role]}>
             {ACCESS_ROLE_LABELS[row.original.access_role]}
           </ColorBadge>
         ),
@@ -160,7 +165,8 @@ export function UsersTable({ rows, total, params }: Props) {
         id: 'last_login_at',
         accessorKey: 'last_login_at',
         meta: { label: 'Last login' },
-        cell: ({ row }) => (row.original.last_login_at ? formatDateTime(row.original.last_login_at, timezone) : 'Never'),
+        cell: ({ row }) =>
+          row.original.last_login_at ? formatDateTime(row.original.last_login_at, timezone) : 'Never',
       },
       {
         id: 'actions',
@@ -168,7 +174,11 @@ export function UsersTable({ rows, total, params }: Props) {
         enableHiding: false,
         meta: { className: 'w-0 text-right' },
         cell: ({ row }) => (
-          <RowActions user={row.original} isSelf={row.original.id === me?.id} onEdit={() => setEditing(row.original)} />
+          <RowActions
+            user={row.original}
+            isSelf={row.original.id === me?.id}
+            onEdit={() => setEditing(row.original)}
+          />
         ),
       },
     ],

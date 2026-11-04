@@ -22,6 +22,7 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardPage() {
   const [data, user] = await Promise.all([getDashboardData(), getCurrentUser()]);
   const month = data.today.slice(0, 7);
+  const seeMoney = user?.can.seeMoney ?? false;
   const nightAllowance = await getNightAllowanceSummary(month).catch(() => null);
   return (
     <div className="space-y-6">
@@ -31,18 +32,27 @@ export default async function DashboardPage() {
         employees={data.employees}
         projects={data.projects}
         attendance={data.attendance}
-        invoices={data.invoices}
+        invoices={seeMoney ? data.invoices : null}
       />
-      <div className="grid gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <InvoicedChart data={data.monthlyInvoiced} />
+      {/* Attendance managers see no money or invoices (§18). */}
+      {seeMoney ? (
+        <div className="grid gap-4 xl:grid-cols-3">
+          <div className="xl:col-span-2">
+            <InvoicedChart data={data.monthlyInvoiced} />
+          </div>
+          <RoleDonut slices={data.roles} />
         </div>
+      ) : (
         <RoleDonut slices={data.roles} />
-      </div>
+      )}
       <div className="grid gap-4 xl:grid-cols-2">
-        <ReadyToInvoiceWidget rows={data.readyToInvoice} isAdmin={user?.isAdmin ?? false} />
-        <OverdueInvoicesWidget rows={data.overdue} today={data.today} />
-        <OutdatedInvoicesWidget rows={data.outdated} today={data.today} />
+        {seeMoney && (
+          <>
+            <ReadyToInvoiceWidget rows={data.readyToInvoice} isAdmin={user?.isAdmin ?? false} />
+            <OverdueInvoicesWidget rows={data.overdue} today={data.today} />
+            <OutdatedInvoicesWidget rows={data.outdated} today={data.today} />
+          </>
+        )}
         <OnLeaveTodayWidget rows={data.onLeave} today={data.today} />
         <UpcomingHolidaysWidget rows={data.holidays} />
         {nightAllowance && <NightAllowanceWidget month={month} summary={nightAllowance} />}

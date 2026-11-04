@@ -2,6 +2,7 @@ import 'server-only';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { escapeSearch, pageRange, type ListParams } from '@/lib/list-params';
+import { ACCESS_ROLES, type AccessRole } from '@/lib/auth/permissions';
 import type { Tables } from '@/types/database';
 import type { UsersListConfig } from './list-config';
 
@@ -28,7 +29,9 @@ export async function listUsers(
     const s = escapeSearch(params.q);
     q = q.or(`full_name.ilike.%${s}%,email.ilike.%${s}%`);
   }
-  const roles = params.filters.access_role.filter((r): r is 'admin' | 'viewer' => r === 'admin' || r === 'viewer');
+  const roles = params.filters.access_role.filter((r): r is AccessRole =>
+    (ACCESS_ROLES as readonly string[]).includes(r),
+  );
   if (roles.length) q = q.in('access_role', roles);
   if (params.filters.active !== undefined) q = q.eq('is_active', params.filters.active);
 

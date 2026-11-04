@@ -1230,7 +1230,7 @@ twice. Shared primitives in `src/components/`:
 | Night allowance: report, employee tab, CSV export | ✓ | ✓ (read-only) | ✓ |
 | Night allowance: overrides, recalculate, finalise / reopen, rates | ✓ | – | – |
 | Projects, holidays: view | ✓ | ✓ (no money) | ✓ |
-| Invoices (list, detail, PDF/Word/PNG, export, employee & project invoice tabs, billing cycles) | ✓ | **hidden, 403** | ✓ |
+| Invoices (list, detail, PDF/Word/PNG, export, employee & project invoice tabs, billing cycles, project tasks) | ✓ | **hidden, 403** | ✓ |
 | Money: monthly costs / assignment rates, invoiced KPIs and chart, ready-to-invoice / overdue / outdated widgets | ✓ | **hidden** | ✓ |
 | Users, Roles & Designations, Settings, activity log | ✓ | – (403) | – (403) |
 
@@ -1246,7 +1246,8 @@ twice. Shared primitives in `src/components/`:
     Compare `access_role::text` so the migration can add the enum value in the same transaction.
   - `employees` insert / update and `attendance` insert / update / delete policies use `can_manage_attendance()`;
     `upsert_attendance_bulk` checks `can_manage_attendance()` instead of `is_admin()`.
-  - Select on `invoices`, `invoice_lines`, `invoice_events`, `invoice_number_sequences`, `assignment_rates` uses
+  - Select on `invoices`, `invoice_lines`, `invoice_events`, `invoice_number_sequences`, `assignment_rates`,
+    `project_tasks` (amounts) uses
     `can_see_money()` (security-invoker list views therefore return no money for managers).
   - Everything else unchanged (managers cannot delete employees: `delete_employee` / delete policy stay admin-only).
 - **Server actions** — `permittedAction(permission, schema, body)` (generalised `adminAction`); `createEmployee`,

@@ -6,14 +6,15 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { useIsAdmin } from '@/components/providers/current-user';
+import { useCan, useIsAdmin } from '@/components/providers/current-user';
 import { deleteEmployee } from '../actions';
 
-/** Edit / Delete on the employee detail header (admins only). */
+/** Edit (admins + attendance managers) / Delete (admins only) on the employee detail header. */
 export function EmployeeAdminActions({ employeeId, name }: { employeeId: string; name: string }) {
   const isAdmin = useIsAdmin();
+  const { manageEmployees } = useCan();
   const router = useRouter();
-  if (!isAdmin) return null;
+  if (!manageEmployees) return null;
   return (
     <>
       <Button variant="outline" asChild>
@@ -21,26 +22,28 @@ export function EmployeeAdminActions({ employeeId, name }: { employeeId: string;
           <Pencil aria-hidden /> Edit
         </Link>
       </Button>
-      <ConfirmDialog
-        trigger={
-          <Button variant="outline" className="text-destructive">
-            <Trash2 aria-hidden /> Delete
-          </Button>
-        }
-        title={`Delete ${name}?`}
-        description="This permanently removes the employee, their employment history, assignments and attendance. Employees who have been invoiced cannot be deleted — mark them off-role instead."
-        confirmLabel="Delete employee"
-        onConfirm={async () => {
-          const res = await deleteEmployee({ id: employeeId });
-          if (!res.ok) {
-            toast.error(res.error.message);
-            return;
+      {isAdmin && (
+        <ConfirmDialog
+          trigger={
+            <Button variant="outline" className="text-destructive">
+              <Trash2 aria-hidden /> Delete
+            </Button>
           }
-          toast.success(`${name} deleted`);
-          startNavigationProgress();
-          router.push('/employees');
-        }}
-      />
+          title={`Delete ${name}?`}
+          description="This permanently removes the employee, their employment history, assignments and attendance. Employees who have been invoiced cannot be deleted — mark them off-role instead."
+          confirmLabel="Delete employee"
+          onConfirm={async () => {
+            const res = await deleteEmployee({ id: employeeId });
+            if (!res.ok) {
+              toast.error(res.error.message);
+              return;
+            }
+            toast.success(`${name} deleted`);
+            startNavigationProgress();
+            router.push('/employees');
+          }}
+        />
+      )}
     </>
   );
 }

@@ -5,11 +5,19 @@ import { useEffect, useState } from 'react';
 import { ChevronsLeft, ChevronsRight, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useIsAdmin } from '@/components/providers/current-user';
+import { useCan, useIsAdmin } from '@/components/providers/current-user';
 import { cn } from '@/lib/utils';
 import { ADMIN_NAV, MAIN_NAV, type NavItem } from './nav';
 
-function NavLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed: boolean; onNavigate?: () => void }) {
+function NavLink({
+  item,
+  collapsed,
+  onNavigate,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
   const link = (
@@ -18,8 +26,8 @@ function NavLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-        active && 'bg-sidebar-accent font-medium text-sidebar-accent-foreground',
+        'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-3 rounded-md px-3 py-2 text-sm',
+        active && 'bg-sidebar-accent text-sidebar-accent-foreground font-medium',
         collapsed && 'justify-center px-2',
       )}
     >
@@ -36,16 +44,28 @@ function NavLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
   );
 }
 
-export function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
+export function SidebarNav({
+  collapsed = false,
+  onNavigate,
+}: {
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
   const isAdmin = useIsAdmin();
+  const { seeMoney } = useCan();
   return (
     <nav aria-label="Main" className="flex flex-col gap-1 p-2">
-      {MAIN_NAV.map((item) => (
+      {MAIN_NAV.filter((item) => seeMoney || !item.money).map((item) => (
         <NavLink key={item.href} item={item} collapsed={collapsed} onNavigate={onNavigate} />
       ))}
       {isAdmin && (
         <>
-          <p className={cn('mt-4 mb-1 px-3 text-xs font-medium tracking-wide text-muted-foreground uppercase', collapsed && 'sr-only')}>
+          <p
+            className={cn(
+              'text-muted-foreground mt-4 mb-1 px-3 text-xs font-medium tracking-wide uppercase',
+              collapsed && 'sr-only',
+            )}
+          >
             Admin
           </p>
           {ADMIN_NAV.map((item) => (
@@ -79,11 +99,16 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'sticky top-0 hidden h-svh shrink-0 flex-col border-r bg-sidebar transition-[width] md:flex',
+        'bg-sidebar sticky top-0 hidden h-svh shrink-0 flex-col border-r transition-[width] md:flex',
         collapsed ? 'w-14' : 'w-60',
       )}
     >
-      <div className={cn('flex h-14 items-center gap-2 border-b px-4 font-semibold', collapsed && 'justify-center px-0')}>
+      <div
+        className={cn(
+          'flex h-14 items-center gap-2 border-b px-4 font-semibold',
+          collapsed && 'justify-center px-0',
+        )}
+      >
         <Receipt className="size-5" aria-hidden />
         {!collapsed && <span>Invoicing</span>}
       </div>
@@ -91,8 +116,20 @@ export function Sidebar() {
         <SidebarNav collapsed={collapsed} />
       </div>
       <div className="border-t p-2">
-        <Button variant="ghost" size="sm" className="w-full" onClick={toggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-          {collapsed ? <ChevronsRight /> : <><ChevronsLeft /> Collapse</>}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full"
+          onClick={toggle}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? (
+            <ChevronsRight />
+          ) : (
+            <>
+              <ChevronsLeft /> Collapse
+            </>
+          )}
         </Button>
       </div>
     </aside>

@@ -12,7 +12,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // Session exists but the profile is missing or deactivated.
   if (!user) redirect('/auth/signout?reason=disabled');
   const supabase = await createClient();
-  const { data: settings } = await supabase.from('app_settings').select('business_timezone').eq('id', 1).maybeSingle();
+  const { data: settings } = await supabase
+    .from('app_settings')
+    .select('business_timezone')
+    .eq('id', 1)
+    .maybeSingle();
   return (
     <CurrentUserProvider
       user={{
@@ -20,6 +24,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         name: user.profile.full_name,
         email: user.email,
         isAdmin: user.isAdmin,
+        can: user.can,
         timezone: settings?.business_timezone ?? 'Asia/Qatar',
       }}
     >

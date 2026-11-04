@@ -20,6 +20,8 @@ values ('99999999-9999-4999-8999-999999999999', 'AM Emp', 'am-emp@test.local', (
 -- The demo data has invoices and rates, so "manager sees none" below is meaningful.
 select isnt_empty($$ select 1 from public.invoices $$, 'fixture: invoices exist');
 select isnt_empty($$ select 1 from public.assignment_rates $$, 'fixture: assignment rates exist');
+insert into public.project_tasks (project_id, name, amount)
+select id, 'AM task', 100 from public.projects limit 1;
 
 -- ---------------- attendance manager ----------------
 set local role authenticated;
@@ -72,6 +74,7 @@ select is_empty($$ select 1 from public.invoice_lines $$, 'manager sees no invoi
 select is_empty($$ select 1 from public.invoice_events $$, 'manager sees no invoice events');
 select is_empty($$ select 1 from public.invoice_number_sequences $$, 'manager sees no invoice number sequences');
 select is_empty($$ select 1 from public.assignment_rates $$, 'manager sees no assignment rates');
+select is_empty($$ select 1 from public.project_tasks $$, 'manager sees no project tasks (amounts)');
 select is_empty($$ select 1 from public.invoice_list $$, 'manager sees no invoice_list rows');
 select is_empty($$ select 1 from public.assignment_current_rates $$, 'manager sees no current rates');
 

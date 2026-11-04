@@ -7,7 +7,7 @@ import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { COLOR_CLASSES } from '@/components/status-badge';
-import { useIsAdmin } from '@/components/providers/current-user';
+import { useCan } from '@/components/providers/current-user';
 import { eachDay } from '@/lib/billing/dates';
 import { formatDate, WEEKDAYS_SHORT } from '@/lib/dates';
 import { cn } from '@/lib/utils';
@@ -48,7 +48,7 @@ type Selection = { from: string; to: string } | null;
  * Shift+click (or the From/To fields) selects a range to bulk-set it.
  */
 export function EmployeeCalendar({ employeeId, month, days, periods, records, statuses }: Props) {
-  const isAdmin = useIsAdmin();
+  const canMark = useCan().markAttendance;
   const [anchor, setAnchor] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const weeks = useMemo(() => calendarWeeks(month), [month]);
@@ -74,7 +74,7 @@ export function EmployeeCalendar({ employeeId, month, days, periods, records, st
           <thead>
             <tr>
               {WEEKDAYS_SHORT.map((w) => (
-                <th key={w} scope="col" className="py-1 text-xs font-medium text-muted-foreground">
+                <th key={w} scope="col" className="text-muted-foreground py-1 text-xs font-medium">
                   {w}
                 </th>
               ))}
@@ -99,13 +99,13 @@ export function EmployeeCalendar({ employeeId, month, days, periods, records, st
                         <span
                           className={cn(
                             'mt-1 block truncate rounded border px-1 text-[11px]',
-                            status ? COLOR_CLASSES[status.color] : 'border-dashed text-muted-foreground',
+                            status ? COLOR_CLASSES[status.color] : 'text-muted-foreground border-dashed',
                           )}
                         >
                           {status?.label ?? 'Not marked'}
                         </span>
                       ) : (
-                        <span className="mt-1 block text-[11px] text-muted-foreground">Off-role</span>
+                        <span className="text-muted-foreground mt-1 block text-[11px]">Off-role</span>
                       )}
                       {info?.holiday && (
                         <span className="mt-0.5 block truncate text-[10px] text-violet-700 dark:text-violet-300">
@@ -121,20 +121,29 @@ export function EmployeeCalendar({ employeeId, month, days, periods, records, st
                   );
                   return (
                     <td key={date} className="p-1 align-top">
-                      {isAdmin ? (
+                      {canMark ? (
                         <button
                           type="button"
                           aria-label={label}
                           aria-pressed={inSelection(date)}
                           title={label}
                           data-testid={`day-${date}`}
-                          className={cn(cls, 'hover:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none')}
+                          className={cn(
+                            cls,
+                            'hover:border-ring focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
+                          )}
                           onClick={(e) => select(date, e.shiftKey)}
                         >
                           {body}
                         </button>
                       ) : (
-                        <div role="img" aria-label={label} title={label} data-testid={`day-${date}`} className={cls}>
+                        <div
+                          role="img"
+                          aria-label={label}
+                          title={label}
+                          data-testid={`day-${date}`}
+                          className={cls}
+                        >
                           {body}
                         </div>
                       )}
@@ -146,7 +155,7 @@ export function EmployeeCalendar({ employeeId, month, days, periods, records, st
           </tbody>
         </table>
       </div>
-      {isAdmin && selection && (
+      {canMark && selection && (
         <DayEditor
           key={`${selection.from}|${selection.to}`}
           employeeId={employeeId}
@@ -160,8 +169,10 @@ export function EmployeeCalendar({ employeeId, month, days, periods, records, st
           statuses={statuses}
         />
       )}
-      {isAdmin && !selection && (
-        <p className="text-xs text-muted-foreground">Click a day to set its status. Shift+click another day to select a range.</p>
+      {canMark && !selection && (
+        <p className="text-muted-foreground text-xs">
+          Click a day to set its status. Shift+click another day to select a range.
+        </p>
       )}
     </div>
   );
@@ -227,13 +238,25 @@ function DayEditor({
           <Label htmlFor="att-from" className="text-xs">
             From
           </Label>
-          <Input id="att-from" type="date" className="w-40" defaultValue={selection.from} onBlur={(e) => changeRange('from', e.target.value)} />
+          <Input
+            id="att-from"
+            type="date"
+            className="w-40"
+            defaultValue={selection.from}
+            onBlur={(e) => changeRange('from', e.target.value)}
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="att-to" className="text-xs">
             To
           </Label>
-          <Input id="att-to" type="date" className="w-40" defaultValue={selection.to} onBlur={(e) => changeRange('to', e.target.value)} />
+          <Input
+            id="att-to"
+            type="date"
+            className="w-40"
+            defaultValue={selection.to}
+            onBlur={(e) => changeRange('to', e.target.value)}
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="att-status" className="text-xs">
@@ -270,7 +293,7 @@ function DayEditor({
         </div>
       </div>
       {!single && (
-        <p className="text-xs text-muted-foreground">Days on which the employee is off-role are skipped.</p>
+        <p className="text-muted-foreground text-xs">Days on which the employee is off-role are skipped.</p>
       )}
     </section>
   );

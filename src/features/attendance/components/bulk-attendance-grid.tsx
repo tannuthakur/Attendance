@@ -7,7 +7,7 @@ import { LoadingButton } from '@/components/loading-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useIsAdmin } from '@/components/providers/current-user';
+import { useCan } from '@/components/providers/current-user';
 import { formatDate } from '@/lib/dates';
 import { saveAttendance } from '../actions';
 import {
@@ -49,7 +49,7 @@ export function BulkAttendanceGrid({
   defaultStatus = '',
   emptyMessage = 'No on-role employees match.',
 }: Props) {
-  const isAdmin = useIsAdmin();
+  const canMark = useCan().markAttendance;
   const router = useRouter();
   const [saving, startSaving] = useTransition();
   const first = dates[0];
@@ -117,7 +117,7 @@ export function BulkAttendanceGrid({
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
       e.preventDefault();
-      if (isAdmin && !saving) save();
+      if (canMark && !saving) save();
       return;
     }
     const el = e.target as HTMLElement;
@@ -139,17 +139,22 @@ export function BulkAttendanceGrid({
   return (
     <div className="space-y-3" onKeyDown={onKeyDown}>
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground text-sm">
           {rows.length} employee{rows.length === 1 ? '' : 's'} · {rangeLabel}
         </p>
-        {isAdmin && rows.length > 0 && (
+        {canMark && rows.length > 0 && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <StatusSelect
               aria-label="Set all to"
               placeholder="Set all to…"
               statuses={statuses}
               value=""
-              onValueChange={(v) => setStatusFor(rows.map((r) => r.employee.id), v)}
+              onValueChange={(v) =>
+                setStatusFor(
+                  rows.map((r) => r.employee.id),
+                  v,
+                )
+              }
             />
             <StatusSelect
               aria-label="Set selected to"
@@ -159,7 +164,13 @@ export function BulkAttendanceGrid({
               disabled={selected.size === 0}
               onValueChange={(v) => setStatusFor([...selected], v)}
             />
-            <LoadingButton size="sm" onClick={save} pending={saving} pendingLabel="Saving…" icon={<Save aria-hidden />}>
+            <LoadingButton
+              size="sm"
+              onClick={save}
+              pending={saving}
+              pendingLabel="Saving…"
+              icon={<Save aria-hidden />}
+            >
               Save
             </LoadingButton>
           </div>
@@ -170,12 +181,14 @@ export function BulkAttendanceGrid({
         <Table>
           <TableHeader>
             <TableRow>
-              {isAdmin && (
+              {canMark && (
                 <TableHead className="w-10">
                   <Checkbox
                     aria-label="Select all employees"
                     checked={allSelected ? true : selected.size > 0 ? 'indeterminate' : false}
-                    onCheckedChange={(v) => setSelected(v === true ? new Set(rows.map((r) => r.employee.id)) : new Set())}
+                    onCheckedChange={(v) =>
+                      setSelected(v === true ? new Set(rows.map((r) => r.employee.id)) : new Set())
+                    }
                   />
                 </TableHead>
               )}
@@ -188,7 +201,7 @@ export function BulkAttendanceGrid({
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 5 : 4} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={canMark ? 5 : 4} className="text-muted-foreground h-24 text-center">
                   {emptyMessage}
                 </TableCell>
               </TableRow>
@@ -196,8 +209,12 @@ export function BulkAttendanceGrid({
               rows.map(({ employee: e, offDays }, i) => {
                 const s = state[e.id] ?? { status: defaultStatus, remarks: '' };
                 return (
-                  <TableRow key={e.id} data-testid={`bulk-row-${e.code}`} data-state={selected.has(e.id) ? 'selected' : undefined}>
-                    {isAdmin && (
+                  <TableRow
+                    key={e.id}
+                    data-testid={`bulk-row-${e.code}`}
+                    data-state={selected.has(e.id) ? 'selected' : undefined}
+                  >
+                    {canMark && (
                       <TableCell>
                         <Checkbox
                           aria-label={`Select ${e.name}`}
@@ -217,7 +234,7 @@ export function BulkAttendanceGrid({
                     )}
                     <TableCell>
                       <div className="font-medium">{e.name}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-muted-foreground text-xs">
                         {e.code}
                         {offDays > 0 && ` · off-role on ${offDays} of ${dates.length} days (skipped)`}
                       </div>
@@ -225,13 +242,15 @@ export function BulkAttendanceGrid({
                     <TableCell className="text-sm">{e.jobRole ?? '—'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <StatusSwatch color={s.status && s.status !== KEEP ? colorOf.get(s.status) : undefined} />
+                        <StatusSwatch
+                          color={s.status && s.status !== KEEP ? colorOf.get(s.status) : undefined}
+                        />
                         <StatusSelect
                           aria-label={`Status for ${e.name}`}
                           statuses={statuses}
                           value={s.status}
                           allowKeep={s.status === KEEP}
-                          disabled={!isAdmin}
+                          disabled={!canMark}
                           data-row={i}
                           data-col="status"
                           className="w-full"
@@ -246,7 +265,7 @@ export function BulkAttendanceGrid({
                         value={s.remarks ?? ''}
                         placeholder={s.remarks === null ? 'Mixed – keep existing' : undefined}
                         maxLength={500}
-                        disabled={!isAdmin}
+                        disabled={!canMark}
                         data-row={i}
                         data-col="remarks"
                         onChange={(ev) => patch([e.id], { remarks: ev.target.value })}
@@ -259,10 +278,10 @@ export function BulkAttendanceGrid({
           </TableBody>
         </Table>
       </div>
-      {isAdmin && rows.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Tip: Tab / Shift+Tab moves across a row, ↑ / ↓ moves between rows in the remarks column, Ctrl+S saves. No
-          record counts as Present for billing.
+      {canMark && rows.length > 0 && (
+        <p className="text-muted-foreground text-xs">
+          Tip: Tab / Shift+Tab moves across a row, ↑ / ↓ moves between rows in the remarks column, Ctrl+S
+          saves. No record counts as Present for billing.
         </p>
       )}
     </div>

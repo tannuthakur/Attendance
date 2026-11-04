@@ -7,3 +7,4 @@ export * from './project-status';
 export * from './source';
 export * from './totals';
 export * from './employment';
+export * from './night-allowance';

@@ -1,6 +1,9 @@
 // Cross-module contract (docs/ARCHITECTURE.md): rendered by /employees/[id]?tab=attendance.
 // Keep the export name and props signature stable. Server Component that loads its own data.
+import Link from 'next/link';
 import { getToday } from '@/features/lookups/queries';
+import { createClient } from '@/lib/supabase/server';
+import { computeNightAllowanceMonth } from '@/features/night-allowance/service';
 import { getEmployeeMonth } from '../queries';
 import { isOnRoleOn, parseMonth, type ExistingRecord } from '../lib';
 import { AttendanceLegend } from './attendance-legend';
@@ -19,7 +22,15 @@ export async function EmployeeAttendanceTab({
 }) {
   const today = await getToday();
   const month = parseMonth(searchParams.month, today);
-  const [data, statuses] = await Promise.all([getEmployeeMonth(employeeId, month), getStatusOptions()]);
+  const [data, statuses, night] = await Promise.all([
+    getEmployeeMonth(employeeId, month),
+    getStatusOptions(),
+    // Night-shift counts (§17.1); skipped quietly if the v1.1 tables aren't there yet.
+    createClient()
+      .then((supabase) => computeNightAllowanceMonth(supabase, month, { employeeIds: [employeeId] }))
+      .then((m) => m.rows[0] ?? null)
+      .catch(() => null),
+  ]);
   if (!data) return <p className="text-sm text-muted-foreground">Employee not found.</p>;
 
   const records: Record<string, ExistingRecord> = Object.fromEntries(
@@ -51,6 +62,15 @@ export async function EmployeeAttendanceTab({
         title="Monthly summary"
         notMarked={notMarked}
       />
+      {night && night.nightShifts > 0 && (
+        <p className="text-sm" data-testid="night-shift-summary">
+          Night shifts: <strong>{night.nightShifts}</strong>, eligible for allowance:{' '}
+          <strong>{night.eligibleNights}</strong>{' '}
+          <Link href={`/employees/${employeeId}?tab=night-allowance`} className="text-primary underline-offset-4 hover:underline">
+            Night allowance
+          </Link>
+        </p>
+      )}
       <EmployeeMonthRecords rows={data.records} statuses={statuses} />
     </div>
   );

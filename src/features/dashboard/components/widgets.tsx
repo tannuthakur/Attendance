@@ -220,3 +220,27 @@ export function OnLeaveTodayWidget({ rows, today }: { rows: LeaveTodayRow[]; tod
     </WidgetCard>
   );
 }
+
+/** "Night allowance this month: <total> (<n> employees)" → report (§17.4). */
+export function NightAllowanceWidget({
+  month,
+  summary,
+}: {
+  month: string;
+  summary: { currency: string; total: string; employees: number };
+}) {
+  return (
+    <WidgetCard
+      title="Night allowance this month"
+      description="Employee payout for night shifts (not invoiced)"
+      action={<ViewAll href={`/night-allowance?month=${month}`} label="Open report" />}
+    >
+      <p className="text-2xl font-semibold tabular-nums" data-testid="night-allowance-total">
+        {formatMoney(summary.total, summary.currency)}
+      </p>
+      <p className="text-sm text-muted-foreground">
+        {summary.employees} employee{summary.employees === 1 ? '' : 's'}
+      </p>
+    </WidgetCard>
+  );
+}

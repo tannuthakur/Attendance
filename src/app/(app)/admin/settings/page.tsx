@@ -6,6 +6,7 @@ import { getInvoiceSequences, getLogoUrl } from '@/features/settings/queries';
 import { SettingsForm } from '@/features/settings/components/settings-form';
 import { LogoUpload } from '@/features/settings/components/logo-upload';
 import { AttendanceStatusesForm } from '@/features/settings/components/attendance-statuses-form';
+import { NightAllowanceSettingsCard } from '@/features/night-allowance/components/settings-card';
 
 export const metadata: Metadata = { title: 'Settings' };
 
@@ -58,6 +59,7 @@ export default async function SettingsPage() {
             deduction_factor: Number(s.deduction_factor),
           }))}
         />
+        <NightAllowanceSettingsCard />
       </div>
     </>
   );

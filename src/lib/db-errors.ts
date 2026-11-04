@@ -34,6 +34,11 @@ const KNOWN: Record<string, string> = {
   DUPLICATE_INVOICE_NUMBER: 'That invoice number is already used',
   INVALID_NUMBER: 'Invoice number is required',
   REASON_REQUIRED: 'A reason is required',
+  NA_FINALISED: 'This month is finalised. Reopen it to make changes.',
+  NA_REASON_REQUIRED: 'A reason is required',
+  NA_RATE_OVERLAP: 'A rate already covers some of these dates',
+  EMPLOYEE_HAS_NIGHT_ALLOWANCE: 'This employee has night-allowance statements and cannot be deleted. Mark them off-role instead.',
+  INVALID_MONTH: 'Invalid month',
 };
 
 export function mapDbError(error: PgError, overrides: Partial<Record<string, string>> = {}): ActionError {

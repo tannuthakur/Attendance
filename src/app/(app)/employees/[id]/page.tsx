@@ -19,12 +19,14 @@ import { AssignmentsTable } from '@/features/projects/components/assignments-tab
 import { AssignToProjectDialog } from '@/features/projects/components/assign-to-project-dialog';
 import { EmployeeAttendanceTab } from '@/features/attendance/components/employee-attendance-tab';
 import { EmployeeInvoicesTab } from '@/features/invoices/components/employee-invoices-tab';
+import { EmployeeNightAllowanceTab } from '@/features/night-allowance/components/employee-tab';
 
 const TABS: DetailTab[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'history', label: 'Employment history' },
   { id: 'projects', label: 'Projects' },
   { id: 'attendance', label: 'Attendance' },
+  { id: 'night-allowance', label: 'Night allowance' },
   { id: 'invoices', label: 'Invoices' },
   { id: 'activity', label: 'Activity' },
 ];
@@ -74,6 +76,7 @@ export default async function EmployeePage({ params, searchParams }: PageProps) 
         <ProjectsTab employeeId={employee.id} employeeName={employee.name} today={today} costs={employee.monthly_cost_by_currency} />
       )}
       {tab === 'attendance' && <EmployeeAttendanceTab employeeId={employee.id} searchParams={sp} />}
+      {tab === 'night-allowance' && <EmployeeNightAllowanceTab employeeId={employee.id} />}
       {tab === 'invoices' && <EmployeeInvoicesTab employeeId={employee.id} />}
       {tab === 'activity' && <ActivityTab employeeId={employee.id} isAdmin={isAdmin} timeZone={timeZone} />}
     </>

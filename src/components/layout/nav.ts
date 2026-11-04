@@ -4,6 +4,7 @@ import {
   FileText,
   FolderKanban,
   LayoutDashboard,
+  MoonStar,
   Settings,
   Shield,
   Tags,
@@ -18,6 +19,7 @@ export const MAIN_NAV: NavItem[] = [
   { href: '/employees', label: 'Employees', icon: Users },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/attendance', label: 'Attendance', icon: CalendarCheck },
+  { href: '/night-allowance', label: 'Night allowance', icon: MoonStar },
   { href: '/holidays', label: 'Holidays', icon: CalendarDays },
   { href: '/invoices', label: 'Invoices', icon: FileText },
 ];

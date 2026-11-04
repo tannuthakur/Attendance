@@ -6,7 +6,9 @@ import { getDashboardData } from '@/features/dashboard/queries';
 import { DashboardKpis } from '@/features/dashboard/components/kpi-cards';
 import { InvoicedChart } from '@/features/dashboard/components/invoiced-chart';
 import { RoleDonut } from '@/features/dashboard/components/role-donut';
+import { getNightAllowanceSummary } from '@/features/night-allowance/queries';
 import {
+  NightAllowanceWidget,
   OnLeaveTodayWidget,
   OutdatedInvoicesWidget,
   OverdueInvoicesWidget,
@@ -19,6 +21,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const [data, user] = await Promise.all([getDashboardData(), getCurrentUser()]);
+  const month = data.today.slice(0, 7);
+  const nightAllowance = await getNightAllowanceSummary(month).catch(() => null);
   return (
     <div className="space-y-6">
       <PageHeader title="Dashboard" description={`${weekdayName(data.today)}, ${formatDate(data.today)}`} />
@@ -41,6 +45,7 @@ export default async function DashboardPage() {
         <OutdatedInvoicesWidget rows={data.outdated} today={data.today} />
         <OnLeaveTodayWidget rows={data.onLeave} today={data.today} />
         <UpcomingHolidaysWidget rows={data.holidays} />
+        {nightAllowance && <NightAllowanceWidget month={month} summary={nightAllowance} />}
       </div>
     </div>
   );

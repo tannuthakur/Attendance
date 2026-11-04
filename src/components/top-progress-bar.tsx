@@ -53,11 +53,13 @@ export function TopProgressBar() {
       const a = (e.target as Element | null)?.closest?.('a');
       if (a && isInternalNavigation(a, e, currentRef.current)) start();
     };
-    document.addEventListener('click', onClick);
+    // Capture phase: Next's <Link> calls preventDefault() in its own handler, so a bubbling listener would
+    // always see defaultPrevented and never start the bar.
+    document.addEventListener('click', onClick, true);
     window.addEventListener(START, start);
     window.addEventListener('popstate', start);
     return () => {
-      document.removeEventListener('click', onClick);
+      document.removeEventListener('click', onClick, true);
       window.removeEventListener(START, start);
       window.removeEventListener('popstate', start);
       stop();

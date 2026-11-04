@@ -7,6 +7,7 @@ import { formatDate, WEEKDAYS_SHORT } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 import { saveAttendance } from '../actions';
 import {
+  bulkWarning,
   cellKey,
   isOnRoleOn,
   NOT_MARKED_LABEL,
@@ -83,7 +84,8 @@ export function MonthGrid({ employees, days, records, statuses, emptyMessage = '
     else delete next[key];
     saved.current = next;
     if (res.data.warnings.length) {
-      toast.warning(`Leave on a ${res.data.warnings[0].reason} (${formatDate(date)}) is ignored for billing`);
+      const name = employees.find((e) => e.id === employeeId)?.name ?? 'Employee';
+      toast.warning(bulkWarning(res.data.warnings[0], () => name));
     }
   };
 

@@ -3,7 +3,7 @@ import { cache } from 'react';
 import { createClient, type ServerClient } from '@/lib/supabase/server';
 import { escapeSearch, pageRange, type ListParams } from '@/lib/list-params';
 import { EXPORT_LIMIT } from '@/lib/csv-response';
-import { getDesignations, getJobRoles } from '@/features/lookups/queries';
+import { getDefaultWeekendDays, getDesignations, getJobRoles } from '@/features/lookups/queries';
 import { getHolidayRefs } from '@/features/holidays/queries';
 import type { Views } from '@/types/database';
 import { chunk, fetchAll } from './fetch-all';
@@ -11,7 +11,6 @@ import {
   buildDays,
   buildMonthDays,
   cellKey,
-  DEFAULT_WEEKEND_DAYS,
   monthRange,
   onRoleInRange,
   summarize,
@@ -23,7 +22,7 @@ import {
 } from './lib';
 
 export type { GridEmployee };
-import { ATTENDANCE_SORT_COLUMNS, type AttendanceListConfig } from './list-config';
+import { ATTENDANCE_SORT_COLUMNS, NO_PROJECT, type AttendanceListConfig } from './list-config';
 
 export type AttendanceListRow = Views<'attendance_list'>;
 type Params = ListParams<AttendanceListConfig['filters']>;
@@ -66,6 +65,24 @@ async function teamIds(supabase: ServerClient, projectId: string, from: string, 
       .range(a, b),
   );
   return [...new Set(rows.map((r) => r.employee_id))];
+}
+
+/** Employees with no assignment on any day of [from, to] (§17.5 "No project"). */
+async function unassignedIds(supabase: ServerClient, from: string, to: string): Promise<string[]> {
+  const [all, assigned] = await Promise.all([
+    fetchAll((a, b) => supabase.from('employees').select('id').order('id').range(a, b)),
+    fetchAll((a, b) =>
+      supabase
+        .from('project_assignments')
+        .select('employee_id')
+        .lte('start_date', to)
+        .or(`end_date.is.null,end_date.gte.${from}`)
+        .order('id')
+        .range(a, b),
+    ),
+  ]);
+  const busy = new Set(assigned.map((r) => r.employee_id));
+  return all.map((e) => e.id).filter((id) => !busy.has(id));
 }
 
 /** Employees (optionally restricted) that are on-role on at least one day of [from, to], sorted by name. */
@@ -167,10 +184,16 @@ export async function getMarkData(opts: {
   designationId?: string;
 }): Promise<GridData> {
   const supabase = await createClient();
-  const project = opts.projectId ? await getProjectRef(opts.projectId) : null;
-  const ids = opts.projectId ? await teamIds(supabase, opts.projectId, opts.from, opts.to) : undefined;
+  const noProject = opts.projectId === NO_PROJECT;
+  const project = opts.projectId && !noProject ? await getProjectRef(opts.projectId) : null;
+  const ids = noProject
+    ? await unassignedIds(supabase, opts.from, opts.to)
+    : opts.projectId
+      ? await teamIds(supabase, opts.projectId, opts.from, opts.to)
+      : undefined;
   const employees = await loadEmployees(supabase, { ...opts, ids });
-  const weekendDays = project?.weekend_days ?? DEFAULT_WEEKEND_DAYS;
+  // Without a project filter the grid mixes teams; it shades the default weekend (§17.2).
+  const weekendDays = project?.weekend_days ?? (await getDefaultWeekendDays());
   const [records, holidays] = await Promise.all([
     employees.length ? loadRecords(supabase, opts.from, opts.to, ids ? employees.map((e) => e.id) : undefined) : {},
     getHolidayRefs(opts.from, opts.to, project ? [project.id] : []),
@@ -178,7 +201,7 @@ export async function getMarkData(opts: {
   return { employees, records, days: buildDays(opts.from, opts.to, weekendDays, holidays), weekendDays };
 }
 
-/** Month grid (employees × days). Weekends follow the selected project (default Fri + Sat). */
+/** Month grid (employees × days). Weekends follow the selected project, else the default weekend. */
 export async function getMonthGridData(opts: {
   month: string;
   projectId?: string;
@@ -192,6 +215,19 @@ export async function getMonthGridData(opts: {
 /** Project tab: team on the given date (assigned AND on-role is enforced by the grid / RPC). */
 export async function getProjectDayData(projectId: string, date: string): Promise<GridData> {
   return getMarkData({ from: date, to: date, projectId });
+}
+
+/**
+ * Weekend of an employee (§17.2): the project of the earliest assignment (ties: lowest project code);
+ * no assignment → the default weekend from Settings.
+ * SPEC-NOTE: resolved once per month for calendars (the engine resolves it per day).
+ */
+export async function employeeWeekendDays(assignments: Array<{ project_id: string; start_date: string }>): Promise<number[]> {
+  const refs = new Map((await getProjectRefs()).map((p) => [p.id, p]));
+  const first = [...assignments]
+    .filter((a) => refs.has(a.project_id))
+    .sort((a, b) => a.start_date.localeCompare(b.start_date) || refs.get(a.project_id)!.code.localeCompare(refs.get(b.project_id)!.code))[0];
+  return first ? refs.get(first.project_id)!.weekend_days : getDefaultWeekendDays();
 }
 
 export type EmployeeMonthData = {
@@ -229,9 +265,7 @@ export async function getEmployeeMonth(employeeId: string, month: string): Promi
   ]);
   if (!emp) return null;
   const projectIds = [...new Set((assignments ?? []).map((a) => a.project_id))];
-  const projects = (await getProjectRefs()).filter((p) => projectIds.includes(p.id));
-  // SPEC-NOTE: an employee on several projects uses the weekend of the earliest assignment in the month.
-  const weekendDays = projects.find((p) => p.id === projectIds[0])?.weekend_days ?? DEFAULT_WEEKEND_DAYS;
+  const weekendDays = await employeeWeekendDays(assignments ?? []);
   const holidays = await getHolidayRefs(start, end, projectIds);
   return {
     employee: {
@@ -261,7 +295,13 @@ function filtered<S extends string>(supabase: ServerClient, select: S, params: P
   if (f.date.from) q = q.gte('date', f.date.from);
   if (f.date.to) q = q.lte('date', f.date.to);
   if (f.employee.length) q = q.in('employee_id', f.employee);
-  if (f.project.length) q = q.filter('project_ids', 'ov', pgList(f.project));
+  if (f.project.length) {
+    const ids = f.project.filter((p) => p !== NO_PROJECT);
+    const none = ids.length < f.project.length;
+    if (none && ids.length) q = q.or(`project_ids.ov.${pgList(ids)},project_ids.eq.{}`);
+    else if (none) q = q.filter('project_ids', 'eq', '{}');
+    else q = q.filter('project_ids', 'ov', pgList(ids));
+  }
   if (f.job_role.length) q = q.in('job_role_id', f.job_role);
   if (f.designation.length) q = q.in('designation_id', f.designation);
   if (f.status.length) q = q.in('status_code', f.status);

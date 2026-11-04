@@ -15,6 +15,7 @@ export const COLOR_CLASSES: Record<string, string> = {
   orange: 'bg-orange-100 text-orange-900 border-orange-300 dark:bg-orange-950 dark:text-orange-200 dark:border-orange-800',
   red: 'bg-red-100 text-red-900 border-red-300 dark:bg-red-950 dark:text-red-200 dark:border-red-800',
   purple: 'bg-violet-100 text-violet-900 border-violet-300 dark:bg-violet-950 dark:text-violet-200 dark:border-violet-800',
+  indigo: 'bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950 dark:text-indigo-200 dark:border-indigo-800',
   gray: 'bg-muted text-muted-foreground border-border',
 };
 export const ATTENDANCE_COLORS = Object.keys(COLOR_CLASSES);
@@ -28,6 +29,7 @@ export const COLOR_SWATCH: Record<string, string> = {
   orange: 'bg-orange-500',
   red: 'bg-red-500',
   purple: 'bg-violet-500',
+  indigo: 'bg-indigo-600',
   gray: 'bg-muted-foreground/40',
 };
 

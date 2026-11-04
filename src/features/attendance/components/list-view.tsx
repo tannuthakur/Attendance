@@ -1,7 +1,7 @@
 import type { FilterField } from '@/components/data-table';
 import { getEmployeeOptions, getToday, getUserOptions } from '@/features/lookups/queries';
 import { parseListParams } from '@/lib/list-params';
-import { attendanceListConfig } from '../list-config';
+import { attendanceListConfig, NO_PROJECT } from '../list-config';
 import { getAttendanceSummary, getProjectRefs, listAttendance } from '../queries';
 import { attendanceDatePresets } from '../lib';
 import { AttendanceSummaryBar } from './attendance-summary';
@@ -23,7 +23,7 @@ export async function getAttendanceFilterFields(): Promise<FilterField[]> {
   return [
     { key: 'date', label: 'Date', type: 'dateRange', presets: attendanceDatePresets(today, cycleProjects) },
     { key: 'employee', label: 'Employee', type: 'multi', options: employees.map((e) => ({ value: e.id, label: `${e.name} (${e.code})` })) },
-    { key: 'project', label: 'Project', type: 'multi', options: projects.map((p) => ({ value: p.id, label: p.name })) },
+    { key: 'project', label: 'Project', type: 'multi', options: [{ value: NO_PROJECT, label: 'No project' }, ...projects.map((p) => ({ value: p.id, label: p.name }))] },
     { key: 'job_role', label: 'Job role', type: 'multi', options: roles },
     { key: 'designation', label: 'Designation', type: 'multi', options: designations },
     { key: 'status', label: 'Status', type: 'multi', options: statuses.map((s) => ({ value: s.code, label: s.label })) },

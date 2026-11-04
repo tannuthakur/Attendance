@@ -11,6 +11,7 @@ export async function getStatusOptions(): Promise<StatusOption[]> {
     color: s.color,
     is_leave: s.is_leave,
     deduction_factor: Number(s.deduction_factor),
+    earns_night_allowance: s.earns_night_allowance ?? false,
   }));
 }
 

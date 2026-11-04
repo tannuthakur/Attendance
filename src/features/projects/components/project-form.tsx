@@ -60,7 +60,14 @@ export function autoCycleEnd(start: string): string | null {
   }
 }
 
-export function ProjectForm({ project }: { project?: ProjectFormProject }) {
+export function ProjectForm({
+  project,
+  defaultWeekendDays = DEFAULT_WEEKEND_DAYS,
+}: {
+  project?: ProjectFormProject;
+  /** Pre-ticked for new projects (Settings ▸ default weekend days). */
+  defaultWeekendDays?: number[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string>();
@@ -76,7 +83,7 @@ export function ProjectForm({ project }: { project?: ProjectFormProject }) {
       currency: project?.currency ?? DEFAULT_CURRENCY,
       invoice_to: project?.invoice_to ?? '',
       invoice_title: project?.invoice_title ?? '',
-      weekend_days: project?.weekend_days ?? DEFAULT_WEEKEND_DAYS,
+      weekend_days: project?.weekend_days ?? defaultWeekendDays,
       payment_terms_days: project?.payment_terms_days ?? DEFAULT_PAYMENT_TERMS_DAYS,
       notes: project?.notes ?? '',
     },

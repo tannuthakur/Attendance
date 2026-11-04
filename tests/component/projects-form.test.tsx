@@ -29,7 +29,7 @@ beforeEach(() => {
 });
 
 describe('ProjectForm', () => {
-  it('defaults to USD, Fri+Sat weekend and 15-day terms', () => {
+  it('defaults to USD, Sat+Sun weekend and 15-day terms', () => {
     renderWithUser(<ProjectForm />);
     expect(screen.getByLabelText(/^currency/i)).toHaveValue('USD');
     expect(screen.getByLabelText(/^payment terms/i)).toHaveValue(15);
@@ -38,8 +38,15 @@ describe('ProjectForm', () => {
       .filter((c) => c.getAttribute('aria-checked') === 'true' || c.getAttribute('data-state') === 'checked')
       .map((c) => c.getAttribute('aria-label') ?? c.id);
     // 7 weekday checkboxes + the "Monthly billing cycle" switch (on by default).
-    expect(checked.sort()).toEqual(['Monthly billing cycle', 'weekend-5', 'weekend-6']);
+    expect(checked.sort()).toEqual(['Monthly billing cycle', 'weekend-0', 'weekend-6']);
     expect(screen.getAllByRole('checkbox')).toHaveLength(8);
+  });
+
+  it('pre-ticks the default weekend from Settings for new projects', () => {
+    renderWithUser(<ProjectForm defaultWeekendDays={[5, 6]} />);
+    expect(screen.getByRole('checkbox', { name: 'Friday' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Saturday' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Sunday' })).not.toBeChecked();
   });
 
   it('auto-fills the cycle end date from the start date', async () => {
@@ -97,9 +104,9 @@ describe('ProjectForm', () => {
     await userEvent.type(screen.getByLabelText(/^billing cycle start date/i), '2026-10-08');
     await userEvent.type(screen.getByLabelText(/^invoice to/i), 'Qatar Living{Enter}Doha');
     await userEvent.type(screen.getByLabelText(/^invoice title/i), 'Dev');
-    // Switch weekend to Sat+Sun
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Friday' }));
+    // Switch weekend from Sat+Sun to Fri+Sat
     await userEvent.click(screen.getByRole('checkbox', { name: 'Sunday' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Friday' }));
     const terms = screen.getByLabelText(/^payment terms/i);
     await userEvent.clear(terms);
     await userEvent.type(terms, '30');
@@ -114,7 +121,7 @@ describe('ProjectForm', () => {
       currency: 'QAR',
       invoice_to: 'Qatar Living\nDoha',
       invoice_title: 'Dev',
-      weekend_days: [0, 6],
+      weekend_days: [5, 6],
       payment_terms_days: 30,
       notes: '',
     });

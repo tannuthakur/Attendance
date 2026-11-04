@@ -28,14 +28,14 @@ import {
 const E1 = '11111111-1111-4111-8111-111111111111';
 
 describe('status cycling', () => {
-  it('cycles not marked → present → wfh → short → half → full → not marked', () => {
+  it('cycles not marked → present → wfh → night shift → short → half → full → not marked', () => {
     const seen: Array<string | null> = [];
     let s: string | null = null;
     for (let i = 0; i < STATUS_CYCLE.length; i++) {
       s = nextStatus(s);
       seen.push(s);
     }
-    expect(seen).toEqual(['present', 'wfh', 'short_leave', 'half_day', 'full_day', null]);
+    expect(seen).toEqual(['present', 'wfh', 'night_shift', 'short_leave', 'half_day', 'full_day', null]);
     expect(nextStatus(undefined)).toBe('present');
   });
 });
@@ -158,6 +158,22 @@ describe('bulk result messages', () => {
     expect(message).toBe('24 saved, 1 cleared, 2 skipped – off-role');
     expect(warnings).toEqual(['Aarav – leave on a weekend (02 Oct 2026) is ignored for billing']);
     expect(describeBulkResult(parseBulkResult(null)).message).toBe('0 saved');
+  });
+
+  it('night shift on a weekend / holiday earns no allowance', () => {
+    const r = parseBulkResult({
+      saved: 2,
+      warnings: [
+        { employee_id: E1, date: '2026-11-07', reason: 'weekend', kind: 'night_shift' },
+        { employee_id: E1, date: '2026-11-12', reason: 'holiday', kind: 'night_shift' },
+        { employee_id: E1, date: '2026-11-14', reason: 'weekend', kind: 'leave' },
+      ],
+    });
+    expect(describeBulkResult(r, () => 'Aarav').warnings).toEqual([
+      'Aarav – night shift on a weekend (07 Nov 2026): no night allowance for this day',
+      'Aarav – night shift on a holiday (12 Nov 2026): no night allowance for this day',
+      'Aarav – leave on a weekend (14 Nov 2026) is ignored for billing',
+    ]);
   });
 });
 

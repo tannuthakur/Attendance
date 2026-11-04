@@ -3,6 +3,7 @@ import type { BillingAssignmentInput, BillingInput } from '@/lib/billing';
 export const FACTORS: BillingInput['statusFactors'] = {
   present: { isLeave: false, deductionFactor: '0' },
   wfh: { isLeave: false, deductionFactor: '0' },
+  night_shift: { isLeave: false, deductionFactor: '0' },
   short_leave: { isLeave: true, deductionFactor: '0.25' },
   half_day: { isLeave: true, deductionFactor: '0.5' },
   full_day: { isLeave: true, deductionFactor: '1' },

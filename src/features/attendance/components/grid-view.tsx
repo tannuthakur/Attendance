@@ -1,6 +1,7 @@
 import { getToday } from '@/features/lookups/queries';
 import { WEEKDAYS } from '@/lib/dates';
 import { getMonthGridData, getProjectRefs } from '../queries';
+import { NO_PROJECT } from '../list-config';
 import { param, parseMonth } from '../lib';
 import { AttendanceLegend } from './attendance-legend';
 import { MonthGrid } from './month-grid';
@@ -8,7 +9,7 @@ import { MonthNav } from './month-nav';
 import { ParamForm } from './param-controls';
 import { getRoleOptions, getStatusOptions, type SearchParams } from './shared';
 
-/** §6.4 Month grid: employees × days, weekends from the selected project (default Fri + Sat). */
+/** §6.4 Month grid: employees × days, weekends from the selected project (else the default weekend, §17.2). */
 export async function GridView({ searchParams }: { searchParams: SearchParams }) {
   const today = await getToday();
   const month = parseMonth(searchParams.month, today);
@@ -34,8 +35,11 @@ export async function GridView({ searchParams }: { searchParams: SearchParams })
               label: 'Project',
               type: 'select',
               value: projectId ?? '',
-              emptyLabel: 'All projects',
-              options: projects.map((p) => ({ value: p.id, label: `${p.name} (${p.code})` })),
+              emptyLabel: 'All employees',
+              options: [
+                { value: NO_PROJECT, label: 'No project' },
+                ...projects.map((p) => ({ value: p.id, label: `${p.name} (${p.code})` })),
+              ],
             },
             { name: 'job_role', label: 'Job role', type: 'select', value: jobRoleId ?? '', options: roles },
             { name: 'designation', label: 'Designation', type: 'select', value: designationId ?? '', options: designations },
@@ -45,7 +49,7 @@ export async function GridView({ searchParams }: { searchParams: SearchParams })
       </div>
       <p className="text-sm text-muted-foreground">
         Weekend: {data.weekendDays.map((d) => WEEKDAYS[d]).join(' + ')}
-        {projectId ? '' : ' (default)'}. Click a cell to cycle its status; changes save automatically.
+        {projectId && projectId !== NO_PROJECT ? '' : ' (default)'}. Click a cell to cycle its status; changes save automatically.
       </p>
       <AttendanceLegend statuses={statuses} showCodes />
       <MonthGrid

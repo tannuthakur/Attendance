@@ -18,6 +18,9 @@ export const attendanceListConfig = {
 
 export type AttendanceListConfig = typeof attendanceListConfig;
 
+/** Project filter value for employees without a project on that day (§17.5). */
+export const NO_PROJECT = 'none';
+
 /** Sort id → attendance_list column. */
 export const ATTENDANCE_SORT_COLUMNS: Record<string, string> = {
   date: 'date',

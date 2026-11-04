@@ -2,6 +2,7 @@ import { getToday } from '@/features/lookups/queries';
 import { addDays, eachDay } from '@/lib/billing/dates';
 import { formatDate, WEEKDAYS } from '@/lib/dates';
 import { getMarkData, getProjectRefs } from '../queries';
+import { NO_PROJECT } from '../list-config';
 import { normalizeRange, param, parseDate, PLAN_AHEAD_DAYS, MAX_RANGE_DAYS } from '../lib';
 import { AttendanceLegend } from './attendance-legend';
 import { BulkAttendanceGrid } from './bulk-attendance-grid';
@@ -41,8 +42,11 @@ export async function MarkView({ searchParams }: { searchParams: SearchParams })
             label: 'Project',
             type: 'select',
             value: projectId ?? '',
-            emptyLabel: 'All projects',
-            options: projects.map((p) => ({ value: p.id, label: `${p.name} (${p.code})` })),
+            emptyLabel: 'All employees',
+            options: [
+              { value: NO_PROJECT, label: 'No project' },
+              ...projects.map((p) => ({ value: p.id, label: `${p.name} (${p.code})` })),
+            ],
           },
           { name: 'job_role', label: 'Job role', type: 'select', value: jobRoleId ?? '', options: roles },
           { name: 'designation', label: 'Designation', type: 'select', value: designationId ?? '', options: designations },

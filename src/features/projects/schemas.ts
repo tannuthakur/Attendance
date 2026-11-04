@@ -7,8 +7,11 @@ import { isCurrencyCode } from './currencies';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Default weekend: Friday + Saturday (Qatar). 0 = Sunday … 6 = Saturday. */
-export const DEFAULT_WEEKEND_DAYS = [5, 6];
+/**
+ * Fallback weekend for new projects: Saturday + Sunday (§17.2). The form pre-ticks Settings ▸
+ * default weekend days; this is only used when settings can't be read. 0 = Sunday … 6 = Saturday.
+ */
+export const DEFAULT_WEEKEND_DAYS = [0, 6];
 export const DEFAULT_PAYMENT_TERMS_DAYS = 15;
 
 // ---------------------------------------------------------------------------

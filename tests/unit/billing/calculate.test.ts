@@ -37,6 +37,33 @@ describe('calculateBilling – worked example §8.4', () => {
   });
 });
 
+describe('Night Shift (§17.1) is billed like Present', () => {
+  it('§8.4 example with night shifts still bills 2,750.00', () => {
+    const result = calculateBilling(
+      input({
+        holidays: ['2026-10-18'],
+        assignments: [
+          assignment({
+            attendance: {
+              '2026-10-18': 'full_day',
+              '2026-10-19': 'night_shift',
+              '2026-10-20': 'full_day',
+              '2026-10-21': 'half_day',
+              '2026-10-22': 'short_leave',
+              '2026-10-25': 'night_shift',
+              '2026-10-26': 'night_shift',
+            },
+          }),
+        ],
+      }),
+    );
+    const [a] = result.lines;
+    expect(a.leaveDays).toBe('1.75');
+    expect(a.amount).toBe('2750.00');
+    expect(a.breakdown.find((d) => d.date === '2026-10-19')).toMatchObject({ deduction: '0' });
+  });
+});
+
 describe('working days', () => {
   const cases: Array<[string, number[], number]> = [
     ['Fri+Sat', [5, 6], 21],

@@ -11,6 +11,12 @@ export const getSettings = cache(async (): Promise<Tables<'app_settings'>> => {
   return data;
 });
 
+/** Weekend for employees without a project and pre-ticked for new projects (§17.2; Sat + Sun by default). */
+export const getDefaultWeekendDays = cache(async (): Promise<number[]> => {
+  // Falls back when the v1.1 migration hasn't been applied yet (column missing).
+  return (await getSettings()).default_weekend_days ?? [0, 6];
+});
+
 /** Today in the configured business timezone. */
 export const getToday = cache(async (): Promise<string> => businessToday((await getSettings()).business_timezone));
 

@@ -5,13 +5,14 @@ import { Dec, days as fmtDays } from '@/lib/billing/decimal';
 import { formatDate, monthName } from '@/lib/dates';
 
 /** Codes are fixed in the DB (labels / colours / factors are editable and come from `attendance_statuses`). */
-export const ATTENDANCE_CODES = ['present', 'wfh', 'short_leave', 'half_day', 'full_day'] as const;
+export const ATTENDANCE_CODES = ['present', 'wfh', 'night_shift', 'short_leave', 'half_day', 'full_day'] as const;
 export type AttendanceCode = (typeof ATTENDANCE_CODES)[number];
 
 export const NOT_MARKED_LABEL = 'Not marked (counts as Present)';
 /** Select value meaning "leave existing records untouched" (range with mixed values). */
 export const KEEP = '__keep';
-export const DEFAULT_WEEKEND_DAYS = [5, 6];
+/** Fallback only — the real default is `app_settings.default_weekend_days` (Sat + Sun, §17.2). */
+export const DEFAULT_WEEKEND_DAYS = [0, 6];
 /** Bulk marking range limit. SPEC-NOTE: one month keeps the grid and the RPC payload small. */
 export const MAX_RANGE_DAYS = 31;
 /** Mirrors `upsert_attendance_bulk` (date ≤ today + 60). */
@@ -23,6 +24,8 @@ export type StatusOption = {
   color: string;
   is_leave: boolean;
   deduction_factor: number;
+  /** Night Shift (§17.1): billed like Present; counts towards the night allowance on working days. */
+  earns_night_allowance?: boolean;
 };
 
 export type Period = { start: string; end: string | null };
@@ -37,7 +40,7 @@ export type GridEmployee = {
   periods: Period[];
 };
 
-/** Cycle used by the month grid: not marked → present → wfh → short → half → full → not marked. */
+/** Cycle used by the month grid: not marked → present → wfh → night shift → short → half → full → not marked. */
 export const STATUS_CYCLE: Array<AttendanceCode | null> = [null, ...ATTENDANCE_CODES];
 
 export function nextStatus(current: string | null | undefined): AttendanceCode | null {
@@ -48,6 +51,7 @@ export function nextStatus(current: string | null | undefined): AttendanceCode |
 export const STATUS_SHORT: Record<string, string> = {
   present: 'P',
   wfh: 'W',
+  night_shift: 'NS',
   short_leave: 'SL',
   half_day: 'HD',
   full_day: 'FD',
@@ -240,7 +244,7 @@ export function buildBulkPayload(
 // ---------------------------------------------------------------------------
 // RPC result → messages
 // ---------------------------------------------------------------------------
-export type BulkIssue = { employee_id: string; date: string; reason: string };
+export type BulkIssue = { employee_id: string; date: string; reason: string; kind?: 'leave' | 'night_shift' };
 export type BulkResult = { saved: number; cleared: number; skipped: BulkIssue[]; warnings: BulkIssue[] };
 
 export function parseBulkResult(raw: unknown): BulkResult {
@@ -255,7 +259,16 @@ export function parseBulkResult(raw: unknown): BulkResult {
 
 const REASONS: Record<string, string> = { off_role: 'off-role', holiday: 'holiday', weekend: 'weekend' };
 
-/** "24 saved, 2 skipped – off-role" + one line per leave-on-weekend/holiday warning. */
+/** One warning line: leave on a weekend/holiday is ignored for billing; a night shift there earns no allowance. */
+export function bulkWarning(w: BulkIssue, nameOf: (employeeId: string) => string = (id) => id): string {
+  const what = REASONS[w.reason] ?? w.reason;
+  if (w.kind === 'night_shift') {
+    return `${nameOf(w.employee_id)} – night shift on a ${what} (${formatDate(w.date)}): no night allowance for this day`;
+  }
+  return `${nameOf(w.employee_id)} – leave on a ${what} (${formatDate(w.date)}) is ignored for billing`;
+}
+
+/** "24 saved, 2 skipped – off-role" + one line per leave/night-shift-on-weekend/holiday warning. */
 export function describeBulkResult(
   result: BulkResult,
   nameOf: (employeeId: string) => string = (id) => id,
@@ -266,10 +279,7 @@ export function describeBulkResult(
     const reasons = [...new Set(result.skipped.map((s) => REASONS[s.reason] ?? s.reason))].join(', ');
     parts.push(`${result.skipped.length} skipped – ${reasons}`);
   }
-  const warnings = result.warnings.map(
-    (w) =>
-      `${nameOf(w.employee_id)} – leave on a ${REASONS[w.reason] ?? w.reason} (${formatDate(w.date)}) is ignored for billing`,
-  );
+  const warnings = result.warnings.map((w) => bulkWarning(w, nameOf));
   return { message: parts.join(', '), warnings };
 }
 

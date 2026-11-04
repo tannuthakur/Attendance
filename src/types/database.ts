@@ -1164,6 +1164,8 @@ export type Database = {
     Functions: {
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
       is_active_user: { Args: Record<PropertyKey, never>; Returns: boolean }
+      can_manage_attendance: { Args: Record<PropertyKey, never>; Returns: boolean }
+      can_see_money: { Args: Record<PropertyKey, never>; Returns: boolean }
       business_today: { Args: Record<PropertyKey, never>; Returns: string }
       touch_last_login: { Args: Record<PropertyKey, never>; Returns: undefined }
       refresh_employee_statuses: { Args: Record<PropertyKey, never>; Returns: number }
@@ -1186,7 +1188,7 @@ export type Database = {
       night_allowance_month_action: { Args: { p_month: string; p_action: string; p_reason?: string | null; p_rows?: Json }; Returns: number }
     }
     Enums: {
-      access_role: "admin" | "viewer"
+      access_role: "admin" | "viewer" | "attendance_manager"
       project_status: "not_started" | "active" | "paused" | "ended" | "cancelled"
       invoice_status: "draft" | "issued" | "paid" | "void"
       invoice_line_type: "employee" | "custom"

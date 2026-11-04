@@ -4,7 +4,7 @@
 import { writeFileSync } from 'node:fs';
 
 const enums = {
-  access_role: ['admin', 'viewer'],
+  access_role: ['admin', 'viewer', 'attendance_manager'],
   project_status: ['not_started', 'active', 'paused', 'ended', 'cancelled'],
   invoice_status: ['draft', 'issued', 'paid', 'void'],
   invoice_line_type: ['employee', 'custom'],
@@ -151,6 +151,8 @@ const views = {
 const fns = {
   is_admin: ['Record<PropertyKey, never>', 'boolean'],
   is_active_user: ['Record<PropertyKey, never>', 'boolean'],
+  can_manage_attendance: ['Record<PropertyKey, never>', 'boolean'],
+  can_see_money: ['Record<PropertyKey, never>', 'boolean'],
   business_today: ['Record<PropertyKey, never>', 'string'],
   touch_last_login: ['Record<PropertyKey, never>', 'undefined'],
   refresh_employee_statuses: ['Record<PropertyKey, never>', 'number'],

@@ -19,7 +19,7 @@ const seed = readFileSync('supabase/seed.sql', 'utf8')
   .replaceAll("gen_salt('bf')", "extensions.gen_salt('bf')");
 writeFileSync(
   `${out}/03_demo_data_optional.sql`,
-  header('Step 3 (OPTIONAL) — demo data: 15 employees, 4 projects, attendance, holidays, 3 invoices, plus demo users admin@example.com / viewer@example.com. Skip for production.') +
+  header('Step 3 (OPTIONAL) — demo data: 15 employees, 4 projects, attendance, holidays, 3 invoices, plus demo users admin@example.com / viewer@example.com / manager@example.com. Skip for production.') +
     seed,
 );
 // Upgrade files for projects created before a migration existed (re-runnable migrations only).
@@ -27,6 +27,10 @@ const upgrades = {
   '07_night_shift_allowance.sql': [
     '20261104000011_night_shift_allowance.sql',
     'Step 7 — v1.1 night shift + night allowance + default weekend (4 Nov 2026). Safe to run more than once.\n-- Run it BEFORE deploying the v1.1 code. Fresh projects get it from 01_schema.sql.',
+  ],
+  '08_attendance_manager.sql': [
+    '20261104000012_attendance_manager.sql',
+    'Step 8 — v1.2 "Attendance manager" access role (4 Nov 2026). Safe to run more than once.\n-- Run it BEFORE deploying the v1.2 code. Fresh projects get it from 01_schema.sql.',
   ],
 };
 for (const [file, [migration, title]] of Object.entries(upgrades)) {

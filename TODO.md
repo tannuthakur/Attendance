@@ -445,6 +445,19 @@ Plan (SPEC §17.7):
       warning `kind`, and `TopProgressBar` listened in the bubble phase so `<Link>` clicks never started it — with
       it fixed, e2e 10 holidays List → Calendar navigates again) → Vercel READY. Live UI check by the user pending.
 
+## 3g. v1.2 — change request 12: "Attendance manager" role (user, 4 Nov 2026)
+
+> "Add the user role who can add employee, mark attendance and can see only night allowance."
+
+Spec: **`SPEC.md` §18**. Answered 4 Nov: name **Attendance manager**; hides **invoices + money only** (projects,
+holidays still read-only); employees **add + edit** (no delete / on-off-role / rates); night allowance **view + CSV**.
+
+- [x] 20 Migration `20261104000012_attendance_manager.sql` + cloud `08_attendance_manager.sql` + types + seed user
+      `manager@example.com` / `Manager@12345` + pgTAP `attendance_manager.test.sql` (45 assertions; 193 total)
+- [ ] 21 App: permissions module, `permittedAction`, middleware `requiredAccess`, CurrentUser `can`, users screen role
+- [ ] 22 UI: nav, employees, attendance, projects, dashboard, night allowance read-only for managers
+- [ ] 23 Tests: unit, integration, e2e `12-attendance-manager` → user runs `08_…sql` → push → CI → Vercel → live check
+
 ## 3c. CI end-to-end tests (first run 28 Oct, commit `a1a458f`)
 - [x] CI pipeline green through lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration
 - [x] E2E: **all green 3 Nov** (commit `42902dc`). What was fixed:

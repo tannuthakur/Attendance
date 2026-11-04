@@ -1211,3 +1211,60 @@ twice. Shared primitives in `src/components/`:
 | Default night-allowance rate amount | **Answered 4 Nov 2026: INR 180.00 per night** (`per_night`, from 1 Nov 2026) |
 | Employee on several projects with different weekends | Earliest assignment's project weekend |
 | Should the report also be downloadable as PDF / Excel? | CSV only in v1.1 |
+
+---
+
+## 18. Enhancement v1.2 — "Attendance manager" access role (CR 12, 4 Nov 2026)
+
+> Request: "add the user role who can add employee, mark attendance and can see only night allowance".
+
+### 18.1 Roles
+
+| | Admin | Attendance manager (new) | Viewer |
+|---|---|---|---|
+| Employees: view list / details | ✓ | ✓ (no money) | ✓ |
+| Employees: **create + edit details** | ✓ | **✓** | – |
+| Employees: delete, mark On/Off-role, add job role inline | ✓ | – | – |
+| Attendance: view | ✓ | ✓ | ✓ |
+| Attendance: **mark / edit / clear** (every attendance screen) | ✓ | **✓** | – |
+| Night allowance: report, employee tab, CSV export | ✓ | ✓ (read-only) | ✓ |
+| Night allowance: overrides, recalculate, finalise / reopen, rates | ✓ | – | – |
+| Projects, holidays: view | ✓ | ✓ (no money) | ✓ |
+| Invoices (list, detail, PDF/Word/PNG, export, employee & project invoice tabs, billing cycles) | ✓ | **hidden, 403** | ✓ |
+| Money: monthly costs / assignment rates, invoiced KPIs and chart, ready-to-invoice / overdue / outdated widgets | ✓ | **hidden** | ✓ |
+| Users, Roles & Designations, Settings, activity log | ✓ | – (403) | – (403) |
+
+- Enum value `access_role = 'attendance_manager'`, label **"Attendance manager"** (users screen: role select,
+  filter, badge, CSV).
+- "Can see only night allowance" = of the payroll / finance data it sees **only** night allowance (read-only, CSV
+  allowed); invoices and billing money are hidden. Nightly allowance amounts stay visible.
+
+### 18.2 Enforcement (defence in depth)
+
+- **Database (source of truth)** — migration `…0012_attendance_manager.sql` (+ cloud `08_attendance_manager.sql`):
+  - `can_manage_attendance()` = active admin or attendance manager; `can_see_money()` = active admin or viewer.
+    Compare `access_role::text` so the migration can add the enum value in the same transaction.
+  - `employees` insert / update and `attendance` insert / update / delete policies use `can_manage_attendance()`;
+    `upsert_attendance_bulk` checks `can_manage_attendance()` instead of `is_admin()`.
+  - Select on `invoices`, `invoice_lines`, `invoice_events`, `invoice_number_sequences`, `assignment_rates` uses
+    `can_see_money()` (security-invoker list views therefore return no money for managers).
+  - Everything else unchanged (managers cannot delete employees: `delete_employee` / delete policy stay admin-only).
+- **Server actions** — `permittedAction(permission, schema, body)` (generalised `adminAction`); `createEmployee`,
+  `updateEmployee`, `saveAttendance` require `employees.write` / `attendance.write`.
+- **Routes** — middleware: `/admin/*` and `…/new`, `…/edit` stay admin-only **except** `/employees/new` and
+  `/employees/[id]/edit` (admin + manager); `/invoices/**` (incl. PDF / export routes) is 403 for managers.
+- **UI** — `CurrentUser.can` flags; nav hides Invoices; employee list/detail hide cost columns, Invoices tab and
+  admin-only actions; project detail hides rates / Invoices / Billing cycles tabs; dashboard hides money KPIs,
+  chart and invoice widgets; attendance screens become editable for managers.
+
+### 18.3 Tests and acceptance
+
+- Unit: permission matrix (`src/lib/auth/permissions.ts`), route access (`requiredAccess`), action guard.
+- pgTAP: manager can insert/update employees and attendance, cannot delete employees, cannot read invoices /
+  rates, cannot write night allowance; viewer unchanged.
+- Integration: manager creates an employee, saves attendance, is FORBIDDEN on invoice / night-allowance writes.
+- E2E: manager signs in → adds an employee → marks attendance → opens night allowance → `/invoices` returns 403 and
+  the nav has no Invoices.
+- [ ] Admin can give a user the Attendance manager role; the user can add/edit employees and mark attendance.
+- [ ] The manager sees night allowance (read-only, CSV) but no invoices or money anywhere (UI + direct DB queries).
+- [ ] Viewer and admin behaviour unchanged; all suites green.

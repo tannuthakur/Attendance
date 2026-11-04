@@ -8,7 +8,7 @@ import {
   type ColumnDef,
   type VisibilityState,
 } from '@tanstack/react-table';
-import { Columns3, Download, Search } from 'lucide-react';
+import { Columns3, Download, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -121,7 +121,9 @@ export function DataTable<T, F extends Record<string, FilterDef>>({
 
   const sortable = useMemo(() => new Set(config.sortable), [config.sortable]);
   const filterValues = params.filters as Record<string, unknown>;
-  const exportUrl = exportHref ? `${exportHref}${searchParams.size ? `?${searchParams.toString()}` : ''}` : undefined;
+  const exportUrl = exportHref
+    ? `${exportHref}${searchParams.size ? `?${searchParams.toString()}` : ''}`
+    : undefined;
 
   const onSort = (id: string) => {
     const desc = params.sort.id === id ? !params.sort.desc : false;
@@ -132,7 +134,17 @@ export function DataTable<T, F extends Record<string, FilterDef>>({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-64">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 opacity-50" aria-hidden />
+          {isPending ? (
+            <Loader2
+              className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 animate-spin opacity-60 motion-reduce:animate-none"
+              aria-hidden
+            />
+          ) : (
+            <Search
+              className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 opacity-50"
+              aria-hidden
+            />
+          )}
           <Input
             type="search"
             aria-label="Search"
@@ -147,15 +159,45 @@ export function DataTable<T, F extends Record<string, FilterDef>>({
           const onChange = (v: unknown) => setFilter(f.key, v);
           switch (f.type) {
             case 'multi':
-              return <MultiSelectFilter key={f.key} field={f} value={(value as string[]) ?? []} onChange={onChange} />;
+              return (
+                <MultiSelectFilter
+                  key={f.key}
+                  field={f}
+                  value={(value as string[]) ?? []}
+                  onChange={onChange}
+                />
+              );
             case 'single':
-              return <SingleSelectFilter key={f.key} field={f} value={value as string | undefined} onChange={onChange} />;
+              return (
+                <SingleSelectFilter
+                  key={f.key}
+                  field={f}
+                  value={value as string | undefined}
+                  onChange={onChange}
+                />
+              );
             case 'boolean':
-              return <BooleanFilter key={f.key} field={f} value={value as boolean | undefined} onChange={onChange} />;
+              return (
+                <BooleanFilter
+                  key={f.key}
+                  field={f}
+                  value={value as boolean | undefined}
+                  onChange={onChange}
+                />
+              );
             case 'dateRange':
-              return <DateRangeFilter key={f.key} field={f} value={(value as object) ?? {}} onChange={onChange} />;
+              return (
+                <DateRangeFilter key={f.key} field={f} value={(value as object) ?? {}} onChange={onChange} />
+              );
             case 'numberRange':
-              return <NumberRangeFilter key={f.key} field={f} value={(value as object) ?? {}} onChange={onChange} />;
+              return (
+                <NumberRangeFilter
+                  key={f.key}
+                  field={f}
+                  value={(value as object) ?? {}}
+                  onChange={onChange}
+                />
+              );
           }
         })}
         <div className="ml-auto flex items-center gap-2">
@@ -209,60 +251,82 @@ export function DataTable<T, F extends Record<string, FilterDef>>({
         }}
       />
 
-      <div
-        className={cn('overflow-x-auto rounded-md border transition-opacity', isPending && 'opacity-60')}
-        aria-busy={isPending}
-      >
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((hg) => (
-              <TableRow key={hg.id}>
-                {hg.headers.map((h) => {
-                  const label = h.column.columnDef.meta?.label ?? h.column.id;
-                  const active = params.sort.id === h.column.id;
-                  return (
-                    <TableHead
-                      key={h.id}
-                      className={h.column.columnDef.meta?.className}
-                      aria-sort={active ? (params.sort.desc ? 'descending' : 'ascending') : undefined}
-                    >
-                      {h.isPlaceholder ? null : !h.column.columnDef.meta?.label ? (
-                        flexRender(h.column.columnDef.header, h.getContext())
-                      ) : (
-                        <ColumnHeader
-                          label={label}
-                          sortable={sortable.has(h.column.id)}
-                          active={active}
-                          desc={params.sort.desc}
-                          onSort={() => onSort(h.column.id)}
-                        />
-                      )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={table.getVisibleLeafColumns().length} className="h-32 text-center text-muted-foreground">
-                  {emptyState ?? 'No results match your filters.'}
-                </TableCell>
-              </TableRow>
-            ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
+      <div className="relative" aria-busy={isPending}>
+        {/* Keeps the current rows while the list re-fetches (§17.6): dimmed + spinner overlay. */}
+        {isPending && (
+          <div
+            className="absolute inset-0 z-10 flex items-start justify-center pt-10"
+            data-testid="table-pending"
+          >
+            <Loader2
+              className="text-muted-foreground size-6 animate-spin motion-reduce:animate-none"
+              aria-hidden
+            />
+            <span role="status" className="sr-only">
+              Loading…
+            </span>
+          </div>
+        )}
+        <div
+          className={cn(
+            'overflow-x-auto rounded-md border transition-opacity',
+            isPending && 'pointer-events-none opacity-50',
+          )}
+        >
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((hg) => (
+                <TableRow key={hg.id}>
+                  {hg.headers.map((h) => {
+                    const label = h.column.columnDef.meta?.label ?? h.column.id;
+                    const active = params.sort.id === h.column.id;
+                    return (
+                      <TableHead
+                        key={h.id}
+                        className={h.column.columnDef.meta?.className}
+                        aria-sort={active ? (params.sort.desc ? 'descending' : 'ascending') : undefined}
+                      >
+                        {h.isPlaceholder ? null : !h.column.columnDef.meta?.label ? (
+                          flexRender(h.column.columnDef.header, h.getContext())
+                        ) : (
+                          <ColumnHeader
+                            label={label}
+                            sortable={sortable.has(h.column.id)}
+                            active={active}
+                            desc={params.sort.desc}
+                            onSort={() => onSort(h.column.id)}
+                          />
+                        )}
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={table.getVisibleLeafColumns().length}
+                    className="text-muted-foreground h-32 text-center"
+                  >
+                    {emptyState ?? 'No results match your filters.'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {footer}
@@ -273,6 +337,7 @@ export function DataTable<T, F extends Record<string, FilterDef>>({
         total={total}
         onPage={(page) => update({ page } as Partial<ListParams<F>>, { resetPage: false })}
         onPageSize={(pageSize) => update({ pageSize } as Partial<ListParams<F>>)}
+        disabled={isPending}
       />
     </div>
   );

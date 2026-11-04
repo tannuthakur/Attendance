@@ -1,6 +1,6 @@
 'use client';
-import { type ReactNode } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DownloadMenu, type DownloadOption } from '@/components/download-menu';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -56,16 +56,33 @@ export function PdfPreviewDialog({
             )}
           </div>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-hidden rounded-md border bg-muted/40">
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-md border bg-muted/40">
           {loading || !src ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground" role="status">
-              Preparing preview…
-            </div>
+            <PreviewSpinner />
           ) : (
-            <iframe src={src} title={`${title} preview`} className="h-full w-full" />
+            <PdfFrame key={src} src={src} title={`${title} preview`} />
           )}
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PreviewSpinner() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
+      <Loader2 className="size-5 animate-spin motion-reduce:animate-none" aria-hidden /> Preparing preview…
+    </div>
+  );
+}
+
+/** Spinner until the PDF has loaded in the iframe (§17.6). */
+function PdfFrame({ src, title }: { src: string; title: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <>
+      {!loaded && <PreviewSpinner />}
+      <iframe src={src} title={title} className="h-full w-full" onLoad={() => setLoaded(true)} />
+    </>
   );
 }

@@ -3,6 +3,7 @@ import { useState, useTransition } from 'react';
 import { UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import {
   Dialog,
   DialogContent,
@@ -129,6 +130,7 @@ export function AssignEmployeesDialog({ projectId, projectName, currency, employ
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (pending) return; // can't close while saving
         setOpen(o);
         if (!o) reset();
       }}
@@ -242,9 +244,9 @@ export function AssignEmployeesDialog({ projectId, projectName, currency, employ
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending || selected.length === 0}>
-              {pending ? 'Assigning…' : `Assign ${selected.length || ''}`.trim()}
-            </Button>
+            <LoadingButton type="submit" pending={pending} pendingLabel="Assigning…" disabled={selected.length === 0}>
+              {`Assign ${selected.length || ''}`.trim()}
+            </LoadingButton>
           </DialogFooter>
         </form>
       </DialogContent>

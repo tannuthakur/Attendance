@@ -10,9 +10,11 @@ type Props = {
   total: number;
   onPage: (page: number) => void;
   onPageSize: (size: PageSize) => void;
+  /** While the list re-fetches (§17.6). */
+  disabled?: boolean;
 };
 
-export function Pagination({ page, pageSize, total, onPage, onPageSize }: Props) {
+export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled = false }: Props) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
@@ -23,7 +25,7 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize }: Props)
       </p>
       <div className="flex items-center gap-2">
         <span className="text-muted-foreground">Rows per page</span>
-        <Select value={String(pageSize)} onValueChange={(v) => onPageSize(Number(v) as PageSize)}>
+        <Select disabled={disabled} value={String(pageSize)} onValueChange={(v) => onPageSize(Number(v) as PageSize)}>
           <SelectTrigger className="h-8 w-[72px]" aria-label="Rows per page">
             <SelectValue />
           </SelectTrigger>
@@ -38,16 +40,16 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize }: Props)
         <span className="px-2">
           Page {Math.min(page, pages)} of {pages}
         </span>
-        <Button variant="outline" size="icon-sm" onClick={() => onPage(1)} disabled={page <= 1} aria-label="First page">
+        <Button variant="outline" size="icon-sm" onClick={() => onPage(1)} disabled={disabled || page <= 1} aria-label="First page">
           <ChevronsLeft />
         </Button>
-        <Button variant="outline" size="icon-sm" onClick={() => onPage(page - 1)} disabled={page <= 1} aria-label="Previous page">
+        <Button variant="outline" size="icon-sm" onClick={() => onPage(page - 1)} disabled={disabled || page <= 1} aria-label="Previous page">
           <ChevronLeft />
         </Button>
-        <Button variant="outline" size="icon-sm" onClick={() => onPage(page + 1)} disabled={page >= pages} aria-label="Next page">
+        <Button variant="outline" size="icon-sm" onClick={() => onPage(page + 1)} disabled={disabled || page >= pages} aria-label="Next page">
           <ChevronRight />
         </Button>
-        <Button variant="outline" size="icon-sm" onClick={() => onPage(pages)} disabled={page >= pages} aria-label="Last page">
+        <Button variant="outline" size="icon-sm" onClick={() => onPage(pages)} disabled={disabled || page >= pages} aria-label="Last page">
           <ChevronsRight />
         </Button>
       </div>

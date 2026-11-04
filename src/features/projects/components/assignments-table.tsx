@@ -3,6 +3,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import {
   Dialog,
   DialogContent,
@@ -189,7 +190,7 @@ function ChangeCostDialog({ row, today, onClose }: { row: AssignmentWithRates; t
   };
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open onOpenChange={(o) => !o && !pending && onClose()}>
       <DialogContent>
         <form onSubmit={submit} noValidate className="space-y-4">
           <DialogHeader>
@@ -232,9 +233,9 @@ function ChangeCostDialog({ row, today, onClose }: { row: AssignmentWithRates; t
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Saving…' : 'Save cost'}
-            </Button>
+            <LoadingButton type="submit" pending={pending} pendingLabel="Saving…">
+              Save cost
+            </LoadingButton>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -270,7 +271,7 @@ function EndAssignmentDialog({ row, today, onClose }: { row: AssignmentWithRates
   };
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open onOpenChange={(o) => !o && !pending && onClose()}>
       <DialogContent>
         <form onSubmit={submit} noValidate className="space-y-4">
           <DialogHeader>
@@ -293,9 +294,9 @@ function EndAssignmentDialog({ row, today, onClose }: { row: AssignmentWithRates
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Saving…' : 'End assignment'}
-            </Button>
+            <LoadingButton type="submit" pending={pending} pendingLabel="Saving…">
+              End assignment
+            </LoadingButton>
           </DialogFooter>
         </form>
       </DialogContent>

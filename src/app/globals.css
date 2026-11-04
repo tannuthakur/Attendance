@@ -108,3 +108,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Top navigation progress bar (§17.6): an indeterminate sweep. */
+@keyframes progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}

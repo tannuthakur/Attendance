@@ -1,4 +1,5 @@
 'use client';
+import { startNavigationProgress } from '@/components/top-progress-bar';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Pencil, Trash2 } from 'lucide-react';
@@ -37,6 +38,7 @@ export function ProjectAdminActions({ projectId, name, code }: { projectId: stri
             return;
           }
           toast.success(`${name} deleted`);
+          startNavigationProgress();
           router.push('/projects');
         }}
       />

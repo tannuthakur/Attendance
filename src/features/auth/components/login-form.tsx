@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { loginSchema, type LoginInput } from '../schemas';
@@ -70,9 +70,9 @@ export function LoginForm({ next, initialError }: { next?: string; initialError?
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? 'Signing in…' : 'Sign in'}
-        </Button>
+        <LoadingButton type="submit" className="w-full" pending={pending} pendingLabel="Signing in…">
+          Sign in
+        </LoadingButton>
       </form>
     </Form>
   );

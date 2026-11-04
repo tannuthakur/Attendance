@@ -3,6 +3,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { COLOR_CLASSES } from '@/components/status-badge';
@@ -260,9 +261,9 @@ function DayEditor({
           />
         </div>
         <div className="flex gap-2">
-          <Button onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
+          <LoadingButton onClick={save} pending={saving} pendingLabel="Saving…">
+            Save
+          </LoadingButton>
           <Button variant="ghost" onClick={onDone} disabled={saving}>
             Cancel
           </Button>

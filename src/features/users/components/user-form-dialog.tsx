@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -96,6 +97,7 @@ export function CreateUserDialog() {
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (pending) return; // can't close while saving
         setOpen(o);
         if (!o) {
           form.reset();
@@ -192,9 +194,9 @@ export function CreateUserDialog() {
               <p className="text-sm text-muted-foreground">The user receives an email link to choose a password.</p>
             )}
             <DialogFooter>
-              <Button type="submit" disabled={pending}>
-                {pending ? 'Saving…' : mode === 'invite' ? 'Send invite' : 'Create user'}
-              </Button>
+              <LoadingButton type="submit" pending={pending} pendingLabel={mode === 'invite' ? 'Sending…' : 'Creating…'}>
+                {mode === 'invite' ? 'Send invite' : 'Create user'}
+              </LoadingButton>
             </DialogFooter>
           </form>
         </Form>
@@ -234,6 +236,7 @@ export function EditUserDialog({ user, isSelf, open, onOpenChange }: EditProps) 
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (pending) return; // can't close while saving
         onOpenChange(o);
         if (!o) setError(undefined);
       }}
@@ -286,9 +289,9 @@ export function EditUserDialog({ user, isSelf, open, onOpenChange }: EditProps) 
               )}
             />
             <DialogFooter>
-              <Button type="submit" disabled={pending}>
-                {pending ? 'Saving…' : 'Save changes'}
-              </Button>
+              <LoadingButton type="submit" pending={pending} pendingLabel="Saving…">
+                Save changes
+              </LoadingButton>
             </DialogFooter>
           </form>
         </Form>

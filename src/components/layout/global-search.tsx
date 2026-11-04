@@ -1,4 +1,5 @@
 'use client';
+import { startNavigationProgress } from '@/components/top-progress-bar';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, FolderKanban, Search, User } from 'lucide-react';
@@ -84,6 +85,7 @@ export function GlobalSearch() {
                     onSelect={() => {
                       setOpen(false);
                       setQ('');
+                      startNavigationProgress();
                       router.push(r.href);
                     }}
                   >

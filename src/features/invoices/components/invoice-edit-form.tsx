@@ -1,4 +1,5 @@
 'use client';
+import { startNavigationProgress } from '@/components/top-progress-bar';
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -55,6 +56,7 @@ export function InvoiceEditForm({ invoice, initialLines }: Props) {
       });
       if (res.ok) {
         toast.success('Invoice updated');
+        startNavigationProgress();
         router.push(`/invoices/${invoice.id}`);
         router.refresh();
       } else {

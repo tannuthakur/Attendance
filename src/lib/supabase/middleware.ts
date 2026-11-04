@@ -4,6 +4,14 @@ import type { Database } from '@/types/database';
 
 const PUBLIC_PATHS = ['/login', '/forgot-password', '/auth/callback', '/auth/signout'];
 
+/**
+ * Admin-only pages (§17.6). Checked here, before any streaming starts, so viewers get a real HTTP 403 even
+ * under a `loading.tsx` boundary (where `forbidden()` would already have sent 200). Pages keep their own check.
+ */
+export function isAdminOnlyPath(pathname: string) {
+  return pathname === '/admin' || pathname.startsWith('/admin/') || /\/(new|edit)\/?$/.test(pathname);
+}
+
 export function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
@@ -56,6 +64,17 @@ export async function updateSession(request: NextRequest) {
     url.search = '';
     if (pathname !== '/') url.searchParams.set('next', `${pathname}${search}`);
     return NextResponse.redirect(url);
+  }
+  if (user && isAdminOnlyPath(pathname)) {
+    const { data: profile } = await supabase.from('profiles').select('access_role, is_active').eq('id', user.id).maybeSingle();
+    if (profile && !(profile.access_role === 'admin' && profile.is_active)) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/access-denied';
+      url.search = '';
+      const denied = NextResponse.rewrite(url, { status: 403 });
+      response.cookies.getAll().forEach((c) => denied.cookies.set(c));
+      return denied;
+    }
   }
   if (user && pathname === '/login') {
     const url = request.nextUrl.clone();

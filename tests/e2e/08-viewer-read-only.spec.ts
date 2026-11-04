@@ -40,11 +40,10 @@ test('viewer is read-only', async ({ page }) => {
   const pdf = await page.request.get(`${page.url()}/pdf?download=1`);
   expect(pdf.status()).toBe(200);
 
-  // Direct URLs to admin/edit pages → the 403 page. Routes under a loading.tsx boundary are streamed, so the
-  // HTTP status is already committed as 200 when forbidden() runs; only /admin/* can send a real 403.
+  // Direct URLs to admin/edit pages → a real 403 (checked in the middleware before streaming, §17.6).
   for (const path of ['/employees/new', '/projects/new', '/invoices/new', '/admin/users', '/admin/settings']) {
     const res = await page.goto(path);
-    if (path.startsWith('/admin/')) expect(res?.status(), path).toBe(403);
+    expect(res?.status(), path).toBe(403);
     await expect(page.getByText('403 – Access denied')).toBeVisible();
   }
 });

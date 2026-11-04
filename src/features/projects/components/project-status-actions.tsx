@@ -2,6 +2,7 @@
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import {
   Dialog,
   DialogContent,
@@ -111,7 +112,7 @@ function StatusChangeDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open onOpenChange={(o) => !o && !pending && onClose()}>
       <DialogContent>
         <form onSubmit={submit} noValidate className="space-y-4">
           <DialogHeader>
@@ -148,9 +149,9 @@ function StatusChangeDialog({
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
               Close
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Saving…' : label}
-            </Button>
+            <LoadingButton type="submit" pending={pending} pendingLabel="Saving…">
+              {label}
+            </LoadingButton>
           </DialogFooter>
         </form>
       </DialogContent>

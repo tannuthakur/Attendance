@@ -1,4 +1,5 @@
 'use client';
+import { startNavigationProgress } from '@/components/top-progress-bar';
 import { useState, useTransition, type FormEvent, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ export function useParamNavigation() {
       else next.delete(k);
     }
     const qs = next.toString();
+    startNavigationProgress();
     startTransition(() => router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
   };
   return { push, pending };

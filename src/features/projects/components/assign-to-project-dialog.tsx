@@ -3,6 +3,7 @@ import { useState, useTransition } from 'react';
 import { FolderPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import {
   Dialog,
   DialogContent,
@@ -87,6 +88,7 @@ export function AssignToProjectDialog({
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (pending) return; // can't close while saving
         setOpen(o);
         if (!o) reset();
       }}
@@ -144,9 +146,9 @@ export function AssignToProjectDialog({
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Assigning…' : 'Assign'}
-            </Button>
+            <LoadingButton type="submit" pending={pending} pendingLabel="Assigning…">
+              Assign
+            </LoadingButton>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -237,9 +238,9 @@ export function EmployeeForm({ employee, jobRoles: initialRoles, designations }:
           )}
         />
         <div className="flex gap-2">
-          <Button type="submit" disabled={pending}>
-            {pending ? 'Saving…' : employee ? 'Save changes' : 'Create employee'}
-          </Button>
+          <LoadingButton type="submit" pending={pending} pendingLabel="Saving…">
+            {employee ? 'Save changes' : 'Create employee'}
+          </LoadingButton>
           <Button type="button" variant="outline" onClick={() => router.back()} disabled={pending}>
             Cancel
           </Button>
@@ -295,10 +296,10 @@ function AddJobRole({ onAdded }: { onAdded: (role: { id: string; name: string })
             if (e.key === 'Escape') setOpen(false);
           }}
         />
-        <Button type="button" size="sm" className="h-9" onClick={save} disabled={pending}>
-          {pending ? 'Adding…' : 'Add'}
-        </Button>
-        <Button type="button" size="sm" variant="ghost" className="h-9" onClick={() => setOpen(false)}>
+        <LoadingButton type="button" size="sm" className="h-9" onClick={save} pending={pending} pendingLabel="Adding…">
+          Add
+        </LoadingButton>
+        <Button type="button" size="sm" variant="ghost" className="h-9" onClick={() => setOpen(false)} disabled={pending}>
           Cancel
         </Button>
       </div>

@@ -3,7 +3,7 @@ import { useMemo, useState, useTransition, type KeyboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Save } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -159,9 +159,9 @@ export function BulkAttendanceGrid({
               disabled={selected.size === 0}
               onValueChange={(v) => setStatusFor([...selected], v)}
             />
-            <Button size="sm" onClick={save} disabled={saving}>
-              <Save aria-hidden /> {saving ? 'Saving…' : 'Save'}
-            </Button>
+            <LoadingButton size="sm" onClick={save} pending={saving} pendingLabel="Saving…" icon={<Save aria-hidden />}>
+              Save
+            </LoadingButton>
           </div>
         )}
       </div>

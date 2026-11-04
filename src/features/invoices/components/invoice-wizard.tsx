@@ -1,4 +1,5 @@
 'use client';
+import { startNavigationProgress } from '@/components/top-progress-bar';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -188,6 +189,7 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
       if (res.ok) {
         toast.success(`Invoice ${res.data.invoiceNumber} generated`);
         if (!res.data.pdfStored) toast.warning('The PDF could not be stored; it will be rendered on demand.');
+        startNavigationProgress();
         router.push(`/invoices/${res.data.id}`);
       } else {
         setError(res.error.message);
@@ -236,7 +238,10 @@ export function InvoiceWizard({ data }: { data: WizardData }) {
                 id="wizard-project"
                 className="h-9 rounded-md border bg-background px-3 text-sm"
                 value={project?.id ?? ''}
-                onChange={(e) => router.replace(e.target.value ? `/invoices/new?projectId=${e.target.value}` : '/invoices/new')}
+                onChange={(e) => {
+                  startNavigationProgress();
+                  router.replace(e.target.value ? `/invoices/new?projectId=${e.target.value}` : '/invoices/new');
+                }}
               >
                 <option value="">Select a project…</option>
                 {projects.map((p) => (

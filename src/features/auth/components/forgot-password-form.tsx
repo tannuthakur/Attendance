@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { forgotPasswordSchema, type ForgotPasswordInput } from '../schemas';
@@ -46,9 +46,9 @@ export function ForgotPasswordForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? 'Sending…' : 'Send reset link'}
-        </Button>
+        <LoadingButton type="submit" className="w-full" pending={pending} pendingLabel="Sending…">
+          Send reset link
+        </LoadingButton>
         <p className="text-center text-sm">
           <Link href="/login" className="underline-offset-4 hover:underline">
             Back to sign in

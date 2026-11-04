@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { ArrowDown, ArrowUp, Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,9 +59,9 @@ function AddForm({ kind }: { kind: LookupKind }) {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={pending}>
-          <Plus aria-hidden /> Add
-        </Button>
+        <LoadingButton type="submit" pending={pending} pendingLabel="Adding…" icon={<Plus aria-hidden />}>
+          Add
+        </LoadingButton>
       </form>
     </Form>
   );
@@ -127,13 +128,19 @@ function ItemRow({
           />
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
-        <Button size="icon" variant="ghost" aria-label="Save name" onClick={saveRename} disabled={pending}>
-          <Check aria-hidden />
-        </Button>
+        <LoadingButton
+          size="icon"
+          variant="ghost"
+          aria-label="Save name"
+          onClick={saveRename}
+          pending={pending}
+          icon={<Check aria-hidden />}
+        />
         <Button
           size="icon"
           variant="ghost"
           aria-label="Cancel rename"
+          disabled={pending}
           onClick={() => {
             setEditing(false);
             setName(item.name);

@@ -1,10 +1,11 @@
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/get-user';
 import { createClient } from '@/lib/supabase/server';
 import { CurrentUserProvider } from '@/components/providers/current-user';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
+import { TopProgressBar } from '@/components/top-progress-bar';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
@@ -22,6 +23,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         timezone: settings?.business_timezone ?? 'Asia/Qatar',
       }}
     >
+      <Suspense fallback={null}>
+        <TopProgressBar />
+      </Suspense>
       <div className="flex min-h-svh">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">

@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { resetPasswordSchema, type ResetPasswordInput } from '../schemas';
@@ -60,9 +60,9 @@ export function PasswordForm({ onDone, submitLabel = 'Update password' }: { onDo
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? 'Saving…' : submitLabel}
-        </Button>
+        <LoadingButton type="submit" className="w-full" pending={pending} pendingLabel="Saving…">
+          {submitLabel}
+        </LoadingButton>
       </form>
     </Form>
   );

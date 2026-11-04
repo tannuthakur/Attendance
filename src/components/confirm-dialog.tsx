@@ -2,7 +2,6 @@
 import { useState, type ReactNode } from 'react';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -13,7 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { buttonVariants } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 
 type Props = {
   trigger: ReactNode;
@@ -43,6 +42,7 @@ export function ConfirmDialog({
     <AlertDialog
       open={open}
       onOpenChange={(o) => {
+        if (busy) return; // can't close while the action runs
         setOpen(o);
         if (!o) setTyped('');
       }}
@@ -63,11 +63,12 @@ export function ConfirmDialog({
         )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={blocked || busy}
-            className={destructive ? buttonVariants({ variant: 'destructive' }) : undefined}
-            onClick={async (e) => {
-              e.preventDefault();
+          <LoadingButton
+            pending={busy}
+            pendingLabel="Working…"
+            disabled={blocked}
+            variant={destructive ? 'destructive' : 'default'}
+            onClick={async () => {
               setBusy(true);
               try {
                 await onConfirm();
@@ -77,8 +78,8 @@ export function ConfirmDialog({
               }
             }}
           >
-            {busy ? 'Working…' : confirmLabel}
-          </AlertDialogAction>
+            {confirmLabel}
+          </LoadingButton>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

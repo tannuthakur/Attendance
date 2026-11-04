@@ -1,10 +1,11 @@
 'use client';
-import { useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,14 +39,18 @@ export function HolidayForm({
   projects,
   defaultDate,
   onDone,
+  onPendingChange,
 }: {
   holiday?: EditableHoliday;
   projects: Option[];
   defaultDate?: string;
   onDone: () => void;
+  /** Lets the dialog block closing while saving (§17.6). */
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  useEffect(() => onPendingChange?.(pending), [pending, onPendingChange]);
   const [error, setError] = useState<string>();
   const form = useForm<HolidayFormValues>({
     resolver: zodResolver(holidayFormSchema),
@@ -228,9 +233,9 @@ export function HolidayForm({
           <Button type="button" variant="ghost" onClick={onDone} disabled={pending}>
             Cancel
           </Button>
-          <Button type="submit" disabled={pending}>
-            {pending ? 'Saving…' : holiday ? 'Save changes' : 'Create holiday'}
-          </Button>
+          <LoadingButton type="submit" pending={pending} pendingLabel="Saving…">
+            {holiday ? 'Save changes' : 'Create holiday'}
+          </LoadingButton>
         </div>
       </form>
     </Form>
@@ -249,8 +254,9 @@ export function HolidayFormDialog({
   defaultDate?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => !pending && setOpen(o)}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -261,7 +267,7 @@ export function HolidayFormDialog({
               : 'A date range creates one holiday per day. Holidays inside an issued invoice period mark it Outdated.'}
           </DialogDescription>
         </DialogHeader>
-        {open && <HolidayForm holiday={holiday} projects={projects} defaultDate={defaultDate} onDone={() => setOpen(false)} />}
+        {open && <HolidayForm holiday={holiday} projects={projects} defaultDate={defaultDate} onDone={() => setOpen(false)} onPendingChange={setPending} />}
       </DialogContent>
     </Dialog>
   );

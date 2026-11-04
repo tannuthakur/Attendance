@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Ban, CheckCircle2, Eye, Hash, Loader2, Pencil, RefreshCw, Trash2, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import {
   Dialog,
   DialogContent,
@@ -170,6 +171,7 @@ function EditNumberDialog({ invoice, disabled }: { invoice: InvoiceActionsInvoic
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (pending) return; // can't close while saving
         setOpen(o);
         if (o) setValue(invoice.invoice_number);
       }}
@@ -197,9 +199,14 @@ function EditNumberDialog({ invoice, disabled }: { invoice: InvoiceActionsInvoic
             <Input id="invoice-number" value={value} onChange={(e) => setValue(e.target.value)} autoComplete="off" />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={pending || !value.trim() || value.trim() === invoice.invoice_number}>
-              {pending && <Loader2 className="animate-spin" aria-hidden />} Save number
-            </Button>
+            <LoadingButton
+              type="submit"
+              pending={pending}
+              pendingLabel="Saving…"
+              disabled={!value.trim() || value.trim() === invoice.invoice_number}
+            >
+              Save number
+            </LoadingButton>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -213,7 +220,7 @@ function MarkPaidDialog({ invoice, today }: { invoice: InvoiceActionsInvoice; to
   const [reference, setReference] = useState('');
   const { run, pending } = useRun();
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => !pending && setOpen(o)}>
       <DialogTrigger asChild>
         <Button size="sm">
           <CheckCircle2 aria-hidden /> Mark as paid
@@ -241,9 +248,9 @@ function MarkPaidDialog({ invoice, today }: { invoice: InvoiceActionsInvoice; to
             <Input id="paid-reference" value={reference} onChange={(e) => setReference(e.target.value)} />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={pending || !paidAt}>
-              {pending && <Loader2 className="animate-spin" aria-hidden />} Mark as paid
-            </Button>
+            <LoadingButton type="submit" pending={pending} pendingLabel="Saving…" disabled={!paidAt}>
+              Mark as paid
+            </LoadingButton>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -276,6 +283,7 @@ function ReasonDialog({
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (pending) return; // can't close while saving
         setOpen(o);
         if (!o) setReason('');
       }}
@@ -299,9 +307,14 @@ function ReasonDialog({
             <Textarea id="action-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
           </div>
           <DialogFooter>
-            <Button type="submit" variant={destructive ? 'destructive' : 'default'} disabled={pending || !reason.trim()}>
-              {pending && <Loader2 className="animate-spin" aria-hidden />} {confirmLabel}
-            </Button>
+            <LoadingButton
+              type="submit"
+              variant={destructive ? 'destructive' : 'default'}
+              pending={pending}
+              disabled={!reason.trim()}
+            >
+              {confirmLabel}
+            </LoadingButton>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -338,6 +351,7 @@ function RegenerateDialog({ invoice, disabled }: { invoice: InvoiceActionsInvoic
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (pending) return; // can't close while regenerating
         setOpen(o);
         if (o) load();
       }}
@@ -356,8 +370,8 @@ function RegenerateDialog({ invoice, disabled }: { invoice: InvoiceActionsInvoic
           </DialogDescription>
         </DialogHeader>
         {loading && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" aria-hidden /> Calculating…
+          <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> Calculating…
           </p>
         )}
         {loadError && (
@@ -416,9 +430,11 @@ function RegenerateDialog({ invoice, disabled }: { invoice: InvoiceActionsInvoic
           </div>
         )}
         <DialogFooter>
-          <Button
+          <LoadingButton
             type="button"
-            disabled={!preview || pending}
+            pending={pending}
+            pendingLabel="Regenerating…"
+            disabled={!preview}
             onClick={async () => {
               const ok = await run(
                 () => regenerateInvoice({ id: invoice.id, expectedVersion: preview!.version }),
@@ -427,8 +443,8 @@ function RegenerateDialog({ invoice, disabled }: { invoice: InvoiceActionsInvoic
               if (ok) setOpen(false);
             }}
           >
-            {pending && <Loader2 className="animate-spin" aria-hidden />} Confirm regenerate
-          </Button>
+            Confirm regenerate
+          </LoadingButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -68,6 +68,7 @@ export function TaskFormDialog({
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (pending) return; // can't close while saving
         setOpen(o);
         if (o) {
           form.reset(defaults());
@@ -178,9 +179,9 @@ export function TaskFormDialog({
               />
             </div>
             <div className="flex justify-end">
-              <Button type="submit" disabled={pending}>
-                {pending ? 'Saving…' : task ? 'Save task' : 'Add task'}
-              </Button>
+              <LoadingButton type="submit" pending={pending} pendingLabel="Saving…">
+                {task ? 'Save task' : 'Add task'}
+              </LoadingButton>
             </div>
           </form>
         </Form>

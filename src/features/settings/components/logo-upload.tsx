@@ -3,6 +3,7 @@ import { useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { ImageUp, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/confirm-dialog';
@@ -64,9 +65,16 @@ export function LogoUpload({ logoUrl, kind = 'logo' }: { logoUrl: string | null;
             onChange={(e) => onFile(e.target.files?.[0])}
           />
           <div className="flex gap-2">
-            <Button type="button" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
-              <ImageUp aria-hidden /> {pending ? 'Uploading…' : logoUrl ? `Replace ${lower}` : `Upload ${lower}`}
-            </Button>
+            <LoadingButton
+              type="button"
+              variant="outline"
+              pending={pending}
+              pendingLabel="Uploading…"
+              icon={<ImageUp aria-hidden />}
+              onClick={() => inputRef.current?.click()}
+            >
+              {logoUrl ? `Replace ${lower}` : `Upload ${lower}`}
+            </LoadingButton>
             {logoUrl && (
               <ConfirmDialog
                 trigger={

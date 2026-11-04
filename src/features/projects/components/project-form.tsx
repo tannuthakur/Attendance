@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -407,9 +408,9 @@ export function ProjectForm({
           )}
         />
         <div className="flex gap-2">
-          <Button type="submit" disabled={pending}>
-            {pending ? 'Saving…' : project ? 'Save changes' : 'Create project'}
-          </Button>
+          <LoadingButton type="submit" pending={pending} pendingLabel="Saving…">
+            {project ? 'Save changes' : 'Create project'}
+          </LoadingButton>
           <Button type="button" variant="outline" onClick={() => router.back()} disabled={pending}>
             Cancel
           </Button>

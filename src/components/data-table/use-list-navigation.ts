@@ -1,6 +1,7 @@
 'use client';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useTransition } from 'react';
+import { startNavigationProgress } from '@/components/top-progress-bar';
 import { mergeListParams, type FilterDef, type ListConfig, type ListParams } from '@/lib/list-params';
 
 /**
@@ -16,6 +17,7 @@ export function useListNavigation<F extends Record<string, FilterDef>>(params: L
   const navigate = useCallback(
     (next: ListParams<F>) => {
       const qs = mergeListParams(new URLSearchParams(searchParams.toString()), next, config).toString();
+      startNavigationProgress();
       startTransition(() => router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
     },
     [config, pathname, router, searchParams],

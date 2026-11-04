@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react';
 import { useFieldArray, useForm, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -159,9 +159,9 @@ export function AttendanceStatusesForm({ statuses }: { statuses: StatusRow[] }) 
               </Table>
             </div>
             <div className="flex justify-end">
-              <Button type="submit" disabled={pending}>
-                {pending ? 'Saving…' : 'Save statuses'}
-              </Button>
+              <LoadingButton type="submit" pending={pending} pendingLabel="Saving…">
+                Save statuses
+              </LoadingButton>
             </div>
           </form>
         </Form>

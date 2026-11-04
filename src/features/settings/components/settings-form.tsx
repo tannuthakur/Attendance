@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react';
 import { useForm, type FieldPath } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { LoadingButton } from '@/components/loading-button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -181,9 +181,9 @@ export function SettingsForm({ initial, timezones, today, sequences = {} }: Prop
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={pending}>
-            {pending ? 'Saving…' : 'Save settings'}
-          </Button>
+          <LoadingButton type="submit" pending={pending} pendingLabel="Saving…">
+            Save settings
+          </LoadingButton>
         </div>
       </form>
     </Form>

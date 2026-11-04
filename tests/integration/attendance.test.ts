@@ -142,7 +142,7 @@ describe('saveAttendance (admin)', () => {
     if (!existing?.length) await admin.from('holidays').insert({ name: 'IT holiday', date, applies_to_all_projects: true });
     const res = await saveAttendance({ rows: [{ employee_id: a, date, status_code: 'full_day' }] });
     expect(res.ok).toBe(true);
-    if (res.ok) expect(res.data.warnings).toEqual([{ employee_id: a, date, reason: 'holiday' }]);
+    if (res.ok) expect(res.data.warnings).toEqual([{ employee_id: a, date, reason: 'holiday', kind: 'leave' }]);
   });
 });
 

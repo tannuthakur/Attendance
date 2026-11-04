@@ -2,7 +2,7 @@
 
 > **Purpose:** single place to resume work if context is lost. Read this first, then `SPEC.md` (requirements)
 > and `docs/ARCHITECTURE.md` (code conventions).
-> **Last updated:** 3 Nov 2026 — **CI fully green incl. e2e** (commit `42902dc`); change request 7 (choose invoice
+> **Last updated:** 4 Nov 2026 — **v1.1 spec added (`SPEC.md` §17, §3f)**. Before that, 3 Nov: **CI fully green incl. e2e** (commit `42902dc`); change request 7 (choose invoice
 > number in the wizard) live & verified; all 10 DB migrations applied; first real invoice S2536 generated. Start at §0.1.
 
 Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `[ ]` not started
@@ -14,6 +14,8 @@ Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `
 ### 0.1 Start here (in this order)
 0. ~~Change request 7 — choose the invoice number while generating~~ — **DONE & live 3 Nov** (§3d).
 1. ~~Fix the CI end-to-end tests~~ — **DONE 3 Nov**: whole pipeline green incl. Playwright e2e (§3c).
+0a. **v1.1 — change requests 9–11 (4 Nov): night shift + night allowance, optional project, loaders** — spec written
+    in `SPEC.md` §17 (decisions in §3f). Next: build in the §17.7 phase order (14–19), starting with the migration.
 1a. **Change request 8 — download invoice as PDF / Word / image** (§3e): live since `1d34ad4`; user to try it.
 2. **Open questions for the user** (ask, then record the answer):
    - **Role names on invoice lines:** lines print the job role ("Frontend", "Backend", "DevOps"); references use
@@ -381,8 +383,9 @@ Plan / status:
       signature, footer; PAID/VOID marked). Font Arial (≈ the PDF's Helvetica). Checked visually via LibreOffice.
 - [x] UI: split button **Download PDF ▾** → PDF / Word (.docx) / Image (.png), on the invoice page and in the
       preview popup (`src/components/download-menu.tsx`). Wizard preview (unsaved invoice) stays PDF-only.
-- [x] `next.config.ts`: `pdfjs-dist` + `@napi-rs/canvas` are server externals; their worker, standard fonts,
-      package.json and native binary are force-traced for `/invoices/**` (verified in the build's `.nft.json`).
+- [x] `next.config.ts`: `pdfjs-dist` + `@napi-rs/canvas` are server externals; pdfjs' worker, standard fonts and
+      package.json are force-traced for `/invoices/**`; the canvas native binary is traced automatically (verified
+      in the build's `.nft.json`).
 - [x] Tests: `tests/unit/invoice-export.test.ts` (5), download-menu component test, e2e `02` fetches docx + png.
       486 unit/component tests pass; typecheck, lint, build clean.
 - [x] Fixes on the way: PNG failed in the production build (webpack makes `createRequire` undefined → fonts dir now
@@ -390,6 +393,32 @@ Plan / status:
       `next.config.ts` force-traced pnpm's `@napi-rs` folders (symlinked dirs) — removed, the binary is traced anyway.
 - [x] CI green (e2e downloads docx + png from a production build) · Vercel `1d34ad4` READY.
 - [ ] User: live check — Word + image download of a real invoice.
+
+## 3f. v1.1 — change requests 9–11 (user, 4 Nov 2026) — SPEC WRITTEN, not started
+
+> 1. New attendance status for night shift. 2. Calculate the night allowance of employees on night shift (weekends
+> must not be included). 3. The night allowance must be editable. 4. An employee must not have to be assigned to a
+> project. 5. Loaders wherever there is a navigation or an API call.
+
+Spec: **`SPEC.md` §17** (17.1 status · 17.2 calculation · 17.3 editing + tables · 17.4 report/UI · 17.5 optional
+project · 17.6 loaders · 17.7 phases + tests · 17.8 acceptance + open questions).
+
+Decisions (answered by user 4 Nov):
+- Night allowance = **employee payout report** (`/night-allowance`, CSV); **not** on client invoices.
+- **All three methods**: per night, fixed monthly (prorated by W), % of daily salary.
+- **All three edit levels**: default/per-employee rates (effective-dated), nights override, amount override (reason).
+- Counts **only when the employee comes to the office**: no weekends, no holidays, no leave (night shift from home = WFH).
+- Confirmed 4 Nov: **calendar month** period, WFH night shift earns nothing, payroll currency **INR**, default
+  weekend **Sat + Sun** (employees without a project + new projects; existing projects keep Fri + Sat).
+- Still open: the default night-allowance rate amount (set in Settings once built).
+
+Plan (SPEC §17.7):
+- [ ] 14 Migration `20261104000011_night_shift_allowance.sql` + cloud `07_night_shift_allowance.sql` (user runs it BEFORE push) + types + seed + pgTAP
+- [ ] 15 Night Shift in all attendance UIs; optional-project fixes; `default_weekend_days` setting
+- [ ] 16 Pure engine `src/lib/billing/night-allowance.ts` (100 %) incl. worked example 2,000.00 / 1,200.00 / 800.00
+- [ ] 17 Settings card, employee "Night allowance" tab, `/night-allowance` report, overrides, finalise/reopen, CSV, dashboard card
+- [ ] 18 Loaders: TopProgressBar, `loading.tsx` + `error.tsx` everywhere, LoadingButton, DataTable/dialog pending; keep real 403
+- [ ] 19 CI green → Vercel READY → live check; update this file
 
 ## 3c. CI end-to-end tests (first run 28 Oct, commit `a1a458f`)
 - [x] CI pipeline green through lint, typecheck, Supabase, migrations + seed, unit/component, pgTAP, integration

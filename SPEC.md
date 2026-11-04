@@ -1,6 +1,6 @@
 # Employee Tracking & Invoicing System — Technical Specification
 
-> **Version:** 1.0 · **Date:** 27 Oct 2026 · **Owner:** Tannu (Qatar Living)
+> **Version:** 1.1 · **Date:** 27 Oct 2026, updated 4 Nov 2026 (§17: night shift, night allowance, optional project, loaders) · **Owner:** Tannu (Qatar Living)
 > **Audience:** An AI coding agent in VS Code (Copilot / Claude / Cursor) that builds the full project from this document, and the developers who review it.
 
 ---
@@ -172,6 +172,7 @@ create table attendance_statuses (
 -- short_leave  | Short Leave      | true  | 0.25 | yellow   -- SPEC-NOTE: confirm factor with business
 -- half_day     | Half Day Leave   | true  | 0.50 | orange
 -- full_day     | Full Day Leave   | true  | 1.00 | red
+-- night_shift  | Night Shift      | false | 0.00 | indigo   -- added in v1.1, see §17.1
 -- Codes are fixed; admins may edit only label, color and deduction_factor.
 ```
 
@@ -236,7 +237,7 @@ create table projects (
   currency char(3) not null default 'USD',  -- ISO 4217
   invoice_to text not null,                 -- multi-line address block printed on invoice
   invoice_title text not null,              -- supports tokens, e.g. "Development Work – {MONTH} {YEAR}"
-  weekend_days smallint[] not null default '{5,6}', -- 0=Sun … 6=Sat. Default Fri+Sat (Qatar)
+  weekend_days smallint[] not null default '{0,6}', -- 0=Sun … 6=Sat. Default Sat+Sun (v1.1, was Fri+Sat; existing projects keep theirs)
   payment_terms_days int not null default 15,
   status project_status not null default 'not_started',  -- denormalised current status
   notes text,
@@ -492,7 +493,7 @@ Storage bucket `invoices` (private) and `branding` (private): read for active us
 - All filter, sort and page state lives in the URL (`?q=&status=&sort=name.asc&page=2`) so views can be bookmarked and shared.
 - "Clear filters" button; active-filter chips; result count.
 - Column visibility toggle. **Export CSV** of the current filtered result.
-- Empty states and loading skeletons.
+- Empty states and loading skeletons (v1.1: loaders on every navigation and API call — §17.6).
 
 ### 6.1 Dashboard (`/dashboard`)
 KPI cards (each links to the filtered list):
@@ -534,7 +535,7 @@ Sort: code, name, email, job role, designation, status, start date, end date, pr
 Filters: search (code, name, client, invoice title), status (multi), client (multi), currency (multi), employee assigned (multi), weekend days, billing anchor day, has unpaid invoice (yes/no), created date range.
 Sort: code, name, client, status, currency, employee count, monthly value, last invoice date.
 
-**Create / Edit:** Name*, Client name*, Billing cycle start date*, Billing cycle end date*, Currency* (ISO dropdown, default USD), Invoice to* (multiline), Invoice title* (with token help: `{MONTH}`, `{YEAR}`, `{PERIOD_START}`, `{PERIOD_END}`), Weekend days* (checkbox for each weekday, default Fri+Sat), Payment terms (days), Notes. Editing project fields never changes already-generated invoices (snapshots).
+**Create / Edit:** Name*, Client name*, Billing cycle start date*, Billing cycle end date*, Currency* (ISO dropdown, default USD), Invoice to* (multiline), Invoice title* (with token help: `{MONTH}`, `{YEAR}`, `{PERIOD_START}`, `{PERIOD_END}`), Weekend days* (checkbox for each weekday, default Sat+Sun — v1.1), Payment terms (days), Notes. Editing project fields never changes already-generated invoices (snapshots).
 
 **Detail (`/projects/[id]`)** tabs:
 1. **Overview** – fields, current status badge, status action buttons allowed by §4.4 (Start, Pause, Resume, End, Cancel, Restart, Reopen) each with a dialog for effective date + note; status timeline.
@@ -556,6 +557,8 @@ Sort: code, name, client, status, currency, employee count, monthly value, last 
 Filters: date range (presets: today, this week, this month, current billing cycle of project X), employee (multi), project (multi), job role, designation, status (multi), leave only (yes/no), marked by.
 Sort: date, employee, status, job role, updated at.
 Summary bar for the filtered set: count per status, total leave deduction days.
+
+> v1.1: unassigned employees are included, project filter has "No project", Night Shift status — §17.1, §17.5.
 
 ### 6.5 Holidays (`/holidays`)
 - Create: name*, date or date range*, applies to all projects (default) or selected projects, notes. Duplicate (same date + same scope) is rejected.
@@ -879,5 +882,332 @@ README must cover: prerequisites (Node 20+, pnpm, Docker, Supabase CLI), local s
 | Exact organization invoice PDF format | Placeholder template; swap `OrgInvoiceTemplate.tsx` when provided |
 | Tax / VAT on invoices? | None in v1 (use a custom line if needed) |
 | Invoice number format | `INV-{YYYY}-{SEQ:4}` (editable) |
-| Default weekend | Friday + Saturday |
+| Default weekend | Saturday + Sunday (changed 4 Nov 2026, v1.1 — §17.2) |
 | Multiple currencies per invoice? | No — invoice uses the project currency |
+
+---
+
+## 17. Enhancements v1.1 — Night shift, night allowance, optional project, loaders (4 Nov 2026)
+
+> Change requests **9–11** from the user (4 Nov 2026). This section **adds to and overrides** §1–§16 where they
+> conflict. Build order in §17.7. Existing rules not mentioned here stay unchanged.
+>
+> | CR | Request (user's words, summarised) |
+> |---|---|
+> | 9 | New attendance status **Night Shift**; calculate each employee's **night allowance** (weekends, holidays and leave days never count — *"only when the employee comes to the office"*); the allowance must be **editable** (rate, nights and amount). |
+> | 10 | An employee **does not have to be assigned to any project** — everything except client invoices must work without one. |
+> | 11 | **Loaders** wherever there is a navigation or an API call. |
+>
+> Decisions taken with the user: the night allowance is an **employee payout** (shown in a new report, exported to
+> CSV) — it is **not** added to client invoices. **All three** calculation methods are supported (per night, fixed
+> monthly, % of daily salary). **All three** edit levels are supported (rate, nights override, amount override).
+
+### 17.1 Night Shift attendance status (CR 9)
+
+New fixed status row (seeded by migration, not only `seed.sql`):
+
+| code | label | is_leave | deduction_factor | color | sort_order |
+|---|---|---|---|---|---|
+| `night_shift` | Night Shift | false | 0.00 | indigo | 3 (after `wfh`; leave statuses move to 4–6) |
+
+- New column `attendance_statuses.earns_night_allowance boolean not null default false` — `true` only for
+  `night_shift`. Fixed like `code` / `is_leave` (extend `guard_attendance_statuses()` so admins cannot change it).
+  The migration disables the guard trigger while inserting the row and renumbering `sort_order`, then re-enables it.
+- **Meaning:** the employee worked the night shift **in the office**. Night shift from home is marked **Work From
+  Home** (no allowance) — confirmed by the user 4 Nov 2026.
+- **Client billing:** Night Shift is not a leave → deducts nothing; billed exactly like Present (§8 unchanged; the
+  billing engine already treats every non-leave status as 0 deduction — add a unit test proving it).
+- One status per employee per day (unchanged) → a day can never be both leave and night shift.
+- Marking Night Shift on a weekend or holiday **is allowed** (they may really have worked) but shows the warning
+  *"Weekend / holiday — no night allowance for this day"*; the day is saved and simply not counted (§17.2).
+- Night Shift must appear everywhere statuses appear: status selectors, "Set all to…", "Set selected to…",
+  month-grid click cycle (Present → WFH → Night Shift → Short → Half → Full → Not marked), colour legend, attendance
+  list filter + summary bar, employee calendar + monthly summary ("Night shifts: N, eligible for allowance: M"),
+  dashboard "Today's attendance", CSV exports, `pnpm db:check` seed.
+- Admins may edit its label and colour in Settings like the other statuses.
+
+### 17.2 Night allowance calculation (CR 9)
+
+**Allowance period** = one **calendar month** (1st – last day) per employee — confirmed by the user 4 Nov 2026.
+
+**Eligible night** — a date *d* counts only when **all** are true:
+
+1. attendance status on *d* is `night_shift` (statuses with `earns_night_allowance = true`);
+2. the employee is on-role on *d* (inside an employment period);
+3. *d* is **not a weekend day for the employee** (see below);
+4. *d* is **not a holiday that applies to the employee** (see below);
+5. a night-allowance rate is in effect on *d* (otherwise: not counted + warning "No rate on <date>").
+
+Leave days are excluded automatically (a leave status is never `night_shift`). Unmarked days never count.
+
+**Employee weekend on date d** (also used by attendance grids and calendars — replaces the hard-coded
+`DEFAULT_WEEKEND_DAYS` fallbacks in `src/features/attendance/lib.ts` and `src/features/projects/schemas.ts`):
+- employee has ≥ 1 assignment covering *d* → `weekend_days` of that project; with several, the assignment with the
+  earliest `start_date` (ties: lowest project code) — same rule as the existing SPEC-NOTE in `attendance/queries.ts`;
+- otherwise (no project that day) → new setting `app_settings.default_weekend_days` (default `{0,6}` = **Sat + Sun**, confirmed 4 Nov 2026).
+- **Default weekend for new projects** also becomes Sat + Sun: the project form pre-ticks the days from
+  `default_weekend_days`, and the migration changes the column default `projects.weekend_days` to `'{0,6}'`.
+  **Existing projects keep their stored weekend** (Saudi Living / Qatar Living stay Fri + Sat) — no data update.
+  Both `DEFAULT_WEEKEND_DAYS` constants become `[0, 6]` and are only a fallback when settings can't be read.
+
+**Holiday applies to the employee on d** when the holiday is on *d* and either `applies_to_all_projects = true`
+(applies to **every** employee, assigned or not) or one of its projects is a project the employee is assigned to on *d*.
+
+**Calculation methods** — a rate row (§17.3) has one `method`. Each eligible night gets a **night value**:
+
+| method | Fields used | Night value | Meaning |
+|---|---|---|---|
+| `per_night` | `amount` | `amount` | Fixed amount per night, e.g. 500.00 |
+| `monthly_fixed` | `amount` | `amount ÷ W` | Fixed monthly allowance, prorated: every eligible night of the month = full amount |
+| `percent_daily` | `percent`, `base_monthly_salary` | `percent ÷ 100 × base_monthly_salary ÷ W` | % of the employee's daily salary per night |
+
+- **W** = working days of that employee in the month = days in the month that are **not** weekends for the employee
+  and **not** holidays applying to the employee (independent of employment periods, so joining mid-month lowers
+  the amount naturally). If W = 0 → nothing counted, warning.
+- The rate in effect on each night is used (rates can change mid-month → segments, like §8.3).
+- `calculatedAmount = Σ night values`, `decimal.js`, rounded **once** to 2 decimals ROUND_HALF_UP.
+- `monthly_fixed` never exceeds `amount` because eligible nights ≤ W.
+- All amounts are in the payroll currency `app_settings.payroll_currency` (default `INR`) — one currency for all
+  employees; it has nothing to do with project currencies.
+
+**Pure engine** `src/lib/billing/night-allowance.ts` (inside `src/lib/billing/` → 100 % coverage + no-I/O lint rule):
+
+```ts
+type NightAllowanceRate = {
+  method: 'per_night' | 'monthly_fixed' | 'percent_daily';
+  amount?: string; percent?: string; baseMonthlySalary?: string;
+  effectiveFrom: string; effectiveTo: string | null;   // inclusive; null = open
+};
+type NightAllowanceInput = {
+  month: string;                                  // 'YYYY-MM'
+  employeeId: string;
+  attendance: Record<string, string>;             // date -> status code
+  allowanceStatusCodes: string[];                 // codes with earns_night_allowance
+  employmentPeriods: Array<{ start: string; end: string | null }>;
+  weekendDaysOn: (date: string) => number[];      // resolved by the loader (rule above)
+  holidays: string[];                             // dates applying to this employee
+  employeeRates: NightAllowanceRate[];            // overrides (win over defaults)
+  defaultRates: NightAllowanceRate[];
+};
+type NightAllowanceResult = {
+  workingDays: number;                            // W
+  nightShifts: number;                            // all night_shift days in the month
+  eligibleNights: number;
+  amount: string;                                 // calculated, 2 dp
+  lastRate: NightAllowanceRate | null;            // rate on the last eligible night (or month end)
+  breakdown: Array<{ date: string; status?: string;
+    result: 'counted' | 'weekend' | 'holiday' | 'off_role' | 'no_rate' | 'not_night_shift';
+    nightValue?: string; method?: string }>;
+  warnings: string[];
+};
+```
+
+Loader `src/features/night-allowance/source.ts` builds the input from the DB (employees, employment periods,
+assignments + project weekends, holidays, attendance for the month, rates, settings) and is shared by the report,
+the employee tab and `source_hash` (SHA-256 of the canonical input, like §8.5).
+
+### 17.3 Editable night allowance (CR 9)
+
+Three edit levels — **all admin only**, viewers read-only, every change in `activity_log`:
+
+**(a) Default rate** — Settings ▸ **Night allowance**: method, amount / percent + base salary, effective from;
+history table (newest first). Adding a row closes the previous default (`effective_to` = day before).
+**(b) Per-employee rate** — Employee detail ▸ new **Night allowance** tab: "Set own rate" (method, values,
+effective from, optional effective to) overrides the default for those dates; "Use default from <date>" closes the
+override. History shown.
+**(c) Per-month override** — on the monthly statement (report row or employee tab): admin can set
+**Nights override** and/or **Amount override**, with a required **reason**; "Clear override" removes it.
+
+```sql
+create type night_allowance_method as enum ('per_night','monthly_fixed','percent_daily');
+
+create table night_allowance_rates (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid references employees on delete cascade,   -- null = company default
+  method night_allowance_method not null,
+  amount numeric(14,2) check (amount >= 0),                  -- per_night, monthly_fixed
+  percent numeric(6,2) check (percent between 0 and 1000),   -- percent_daily
+  base_monthly_salary numeric(14,2) check (base_monthly_salary >= 0), -- percent_daily
+  effective_from date not null,
+  effective_to date,
+  note text,
+  created_by uuid references auth.users, created_at timestamptz default now(),
+  check (effective_to is null or effective_to >= effective_from),
+  check ((method in ('per_night','monthly_fixed') and amount is not null)
+      or (method = 'percent_daily' and percent is not null and base_monthly_salary is not null)),
+  exclude using gist (coalesce(employee_id, '00000000-0000-0000-0000-000000000000'::uuid) with =,
+    daterange(effective_from, coalesce(effective_to, 'infinity'), '[]') with &&)
+);
+
+create type night_allowance_status as enum ('draft','finalised');
+
+create table night_allowance_statements (          -- one per employee per month, created on first save/finalise
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references employees on delete restrict,
+  month date not null check (extract(day from month) = 1),   -- first day of the month
+  status night_allowance_status not null default 'draft',
+  currency char(3) not null,
+  working_days numeric(6,2) not null,
+  night_shifts int not null,
+  calculated_nights numeric(6,2) not null,
+  calculated_amount numeric(14,2) not null,
+  nights_override numeric(6,2) check (nights_override >= 0),
+  amount_override numeric(14,2) check (amount_override >= 0),
+  override_reason text,
+  final_nights numeric(6,2) not null,
+  final_amount numeric(14,2) not null,
+  breakdown jsonb not null,
+  source_hash text not null,
+  notes text,
+  finalised_at timestamptz, finalised_by uuid references auth.users,
+  created_at timestamptz default now(), updated_at timestamptz default now(),
+  unique (employee_id, month),
+  check ((nights_override is null and amount_override is null) or override_reason is not null)
+);
+-- app_settings: + default_weekend_days smallint[] not null default '{0,6}'   -- Sat + Sun
+--               + payroll_currency char(3) not null default 'INR'
+```
+
+**Final values** (computed in the pure engine, stored on save):
+- `final_nights = nights_override ?? calculated_nights`
+- `final_amount = amount_override ?? (nights_override is set ? nights_override × night value of lastRate : calculated_amount)`
+  `// SPEC-NOTE:` a nights override is priced at the rate in effect on the last eligible night (or month end).
+- Amount override always wins. Overrides are **kept** on Recalculate.
+
+**Statement lifecycle:**
+- **Draft:** values are recalculated live on every load; stored row updated on Save / Recalculate. Rows are not
+  needed for employees with no override — the report computes them on the fly.
+- **Finalise month** (button on the report, confirmation): creates/updates a statement for every employee with
+  `final_amount > 0` or an override, status `finalised` → locked (no overrides, no recalc).
+- After finalising, a change to attendance / holidays / rates / employment in that month makes the hash differ →
+  **Outdated** badge ("Attendance changed after finalising — reopen to recalculate"). Amounts do **not** change.
+- **Reopen** (admin, reason required) → back to draft.
+- Transactional RPCs: `save_night_allowance(payload jsonb)` and `night_allowance_month_action(month, action, reason)`
+  (`finalise` | `reopen`). Error codes: `NA_FINALISED`, `NA_REASON_REQUIRED`, `NA_RATE_OVERLAP`.
+- RLS like other business tables; activity-log triggers on both tables (`parent_id` = employee id).
+- Deleting an employee is blocked when they have statements (same as invoice lines).
+
+### 17.4 Night allowance report & UI (CR 9)
+
+**New page `/night-allowance`** (sidebar item "Night allowance", below Attendance; viewers can see it):
+
+- Month picker (default: current month; prev/next buttons). Banner: month status (Draft / Finalised / partly
+  outdated), payroll currency, default rate in effect.
+- Columns: Employee code, Name, Job role, Projects (in month, or "No project"), Night shifts, Excluded (weekend /
+  holiday / off-role counts, tooltip), Eligible nights, Rate (method + value), Calculated amount, Nights override,
+  Amount override, **Final amount**, Status, Outdated.
+- Row expand: per-day breakdown (date, status, counted / excluded + reason, night value).
+- Filters: month*, search (code, name), employee (multi), job role, designation, project (multi incl. **No
+  project**), has override (yes/no), status, outdated only, "only employees with night shifts" (default **on**).
+  Sort: code, name, night shifts, eligible nights, final amount. Totals row. **Export CSV** (current filter, incl.
+  breakdown summary columns). URL-persisted like every list (§6 common behaviour).
+- Admin actions: **Edit** (dialog: nights override, amount override, reason, notes; live preview of final amount),
+  Clear override, Recalculate, **Finalise month**, **Reopen month**.
+
+**Employee detail** — new tab **Night allowance**: rate history (own + default) with actions (a)/(b), and a
+month-by-month table (last 12 months) with the same columns and Edit action. Attendance tab summary shows
+night-shift counts.
+**Dashboard** — attendance KPI includes Night Shift automatically; new small card "Night allowance this month:
+<total> (<n> employees)" linking to the report.
+**Settings** — new card **Night allowance**: payroll currency, default weekend days (for employees without a
+project, §17.5), default rate + history.
+**Client invoices** — unchanged; night allowance never appears on invoices or invoice PDFs.
+
+### 17.5 Project assignment is optional for employees (CR 10)
+
+An on-role employee with **no project** is a normal, fully supported state ("On bench" stays the dashboard KPI).
+
+- Employee create/edit never requires or suggests a project; no assignment step is forced.
+- **Attendance** can be marked for unassigned employees everywhere: employee calendar, `/attendance` bulk panel
+  (with no project filter, the grid lists **all** on-role employees, assigned or not), month grid, attendance list.
+  Project filters get a **"No project"** option; the "Projects" column shows "—".
+- Weekends for unassigned employees follow `app_settings.default_weekend_days` (§17.2); global holidays apply to
+  them; project-specific holidays do not.
+- Leave and Night Shift validation (§4.6) must not require an assignment — only being on-role.
+- Night allowance (§17.2) works with or without a project.
+- Client invoices stay per project: unassigned employees never appear on an invoice (no change).
+- Audit and remove any code path that assumes ≥ 1 assignment (e.g. `projectIds[0]` weekend fallback in
+  `attendance/queries.ts`, project-filtered team lookups, CSV export joins, `attendance_list.projects` view column
+  returning null). Add tests for an employee with zero assignments on every attendance screen.
+
+### 17.6 Loaders on every navigation and API call (CR 11)
+
+Rule: **every user action gives visible feedback within 100 ms and until it finishes**; nothing can be submitted
+twice. Shared primitives in `src/components/`:
+
+| Primitive | Use |
+|---|---|
+| `TopProgressBar` (in `(app)/layout.tsx`) | Thin bar at the top for **every** client navigation: links, `router.push/replace`, URL search-param changes (filters, sort, pagination, tabs, month pickers). Shown after a 150 ms delay (no flicker on fast loads). |
+| `loading.tsx` + skeletons | **Every** route segment under `(app)` (today only dashboard, employees, projects, invoices have one): `employees/[id]`, `employees/new`, `employees/[id]/edit`, `projects/[id]`, `projects/new`, `projects/[id]/edit`, `attendance`, `holidays`, `invoices/[id]`, `invoices/new`, `night-allowance`, `admin/users`, `admin/roles`, `admin/settings`. Skeletons mirror the real layout (table rows, cards, form fields, tabs). |
+| `LoadingButton` | Wraps shadcn `Button`: `pending` → spinner + disabled + optional label ("Saving…", "Generating…"). Used by **every** button that calls a Server Action or route handler. Forms use `useFormStatus` / `useTransition`. |
+| `DataTable` pending state | While a list re-fetches (filter/sort/page/search): keep current rows, dim them, show a spinner overlay, set `aria-busy`, disable pagination; search box shows an inline spinner. |
+| Dialog pending state | Confirm/edit dialogs (status change, assign employees, change cost, mark paid/unpaid, void, delete, edit number, user invite, night-allowance edit/finalise) cannot be closed and their buttons are disabled while pending. |
+| Async content spinners | PDF preview popup (spinner until the iframe `load`), Download ▾ menu items PDF / Word / PNG (spinner on the item until the file arrives — PNG/DOCX can take seconds), CSV export, logo/signature upload, global search results, invoice wizard step changes + line calculation + Preview + Generate, bulk attendance Save, month-grid cell save (per-cell spinner), Regenerate diff load. |
+
+- Failures: loader stops, toast shows the friendly error; each segment gets an `error.tsx` with **Retry**.
+- Accessibility: `role="status"` with visually hidden "Loading…", `aria-busy` on busy regions, respect
+  `prefers-reduced-motion` (no spin animation, static indicator).
+- **403 status must survive the new `loading.tsx` files** (known issue §3c of TODO: segments with `loading.tsx`
+  stream and return 200 for `forbidden()`). Do the admin check for `/…/new`, `/…/edit` and `/admin/*` **before**
+  streaming — in `middleware.ts` (profile role from the session) or in a route-group layout that has no
+  `loading.tsx` above it — so these pages return a real **403**. Then tighten e2e `08` to assert 403 for all of them.
+- No new dependency is required (build the bar with `usePathname`/`useSearchParams` + `useLinkStatus` / a
+  navigation-transition context). If a library is used, pin it (e.g. `nextjs-toploader`) and add a SPEC-NOTE.
+
+### 17.7 Build phases for v1.1 (in this order)
+
+| # | Phase | Done when |
+|---|---|---|
+| 14 | Migration `20261104000011_night_shift_allowance.sql` (status + `earns_night_allowance` + guard update, settings columns (`default_weekend_days` `{0,6}`, `payroll_currency` `INR`), `projects.weekend_days` default → `{0,6}`, `night_allowance_rates`, `night_allowance_statements`, RPCs, RLS, activity log, views `night_allowance_statement_list`) + cloud file `supabase/cloud-setup/07_night_shift_allowance.sql` (re-runnable) + `gen-db-types` + seed (night shifts in demo attendance, default rate) | `pnpm db:check` green incl. new pgTAP |
+| 15 | Night Shift status in all attendance UIs + optional-project fixes (§17.1, §17.5) + `default_weekend_days` setting | unit/component tests green; employee with zero assignments works on every attendance screen |
+| 16 | Pure engine `night-allowance.ts` (100 % coverage) + loader + `source_hash` | unit tests green |
+| 17 | Settings card, employee tab, `/night-allowance` report, overrides, finalise/reopen, CSV, dashboard card | component + integration tests green |
+| 18 | Loaders (§17.6): primitives, all `loading.tsx` / `error.tsx`, every action button, 403 fix | component + e2e tests green |
+| 19 | User runs `07_…sql` on Supabase **before** pushing; push → CI green → Vercel READY → live check | TODO.md updated |
+
+**Tests to add**
+- *Unit (engine):* each method; weekend / holiday / leave / off-role / unmarked / no-rate exclusions; project-specific
+  holiday only when assigned; unassigned employee uses default weekend; employee on two projects with different
+  weekends (earliest assignment wins); rate change mid-month (segments); employee override beats default and its
+  end date; W = 0; `monthly_fixed` with every night = exactly `amount`; rounding ROUND_HALF_UP; nights override
+  priced at last rate; amount override wins; overrides kept after recalc; source hash changes with attendance.
+- *Unit (billing):* Night Shift deducts nothing — §8.4 example with night shifts gives the same 2,750.00.
+- *Worked example (must be a unit test):* Nov 2026, INR, employee with no project, default weekend Sat+Sun,
+  holiday Thu 12 Nov (all projects), rate `per_night` 500.00. Night Shift on Mon 2, Tue 3, Sat 7 (weekend), Thu 12
+  (holiday), Mon 16, Tue 17; Full Day Leave Wed 18. → night shifts 6, eligible 4 (2, 3, 16, 17) → **INR 2,000.00**.
+  Same data with `monthly_fixed` 6,000.00: W = 30 − 9 weekend days (1, 7, 8, 14, 15, 21, 22, 28, 29) − 1 holiday
+  = 20 → 6000 / 20 × 4 = **1,200.00**. With `percent_daily` 10 % of 40,000.00: 0.10 × 40000 / 20 × 4 = **800.00**.
+- *Component:* status selectors include Night Shift; weekend/holiday warning; report filters/totals; edit dialog
+  validation (reason required) and live preview; viewer sees no actions; `LoadingButton`, `DataTable` pending,
+  dialog close blocked while pending, `TopProgressBar` delay.
+- *pgTAP:* guard keeps `earns_night_allowance` fixed; rate overlap rejected; override without reason rejected;
+  finalised statement cannot be edited; viewer cannot write the new tables; employee delete blocked with statements.
+- *Integration:* every new action as admin ✔ / viewer ✘; finalise → attendance change → outdated → reopen →
+  recalc; bulk attendance for unassigned employees.
+- *E2E:* mark night shifts (incl. a weekend) for an unassigned employee → report shows eligible nights and amount
+  → override amount with reason → finalise → CSV; buttons show a spinner and are disabled while a delayed request
+  is pending (Playwright route delay); viewer gets 403 on `/employees/new`, `/projects/new`, `/invoices/new`.
+
+### 17.8 Acceptance criteria (v1.1) and open questions
+
+- [ ] Night Shift can be marked from every attendance screen and is billed to clients like Present.
+- [ ] Night allowance counts only night shifts on working days (no weekends, no holidays, no leave), per employee per month.
+- [ ] All three methods work; default rate, per-employee rate, nights override and amount override are editable by admins with history and reasons; viewers read-only.
+- [ ] Months can be finalised (locked) and reopened; later data changes show Outdated.
+- [ ] Report with filters, totals and CSV; employee tab; settings card; dashboard card.
+- [ ] Employees without any project can be created, marked (incl. Night Shift) and get a night allowance.
+- [ ] Every navigation and API call shows a loader; no double submits; forbidden pages still return 403.
+- [ ] All suites pass; `src/lib/billing/**` stays at 100 % coverage.
+
+| Question | Answer |
+|---|---|
+| Allowance period: calendar month or each project's billing cycle? | **Calendar month** (confirmed 4 Nov) |
+| Night shift worked from home — allowance? | **No** — mark as WFH (confirmed 4 Nov) |
+| Payroll currency | **INR** (confirmed 4 Nov) |
+| Default weekend (employees without a project, and new projects) | **Sat + Sun** (confirmed 4 Nov; editable in Settings) |
+
+| Still open | Default used until answered |
+|---|---|
+| Default night-allowance rate amount | `per_night` 0.00 until set in Settings (report warns "No rate") |
+| Employee on several projects with different weekends | Earliest assignment's project weekend |
+| Should the report also be downloadable as PDF / Excel? | CSV only in v1.1 |

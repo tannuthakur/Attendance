@@ -1,6 +1,6 @@
 # Employee Tracking & Invoicing System — Technical Specification
 
-> **Version:** 1.1 · **Date:** 27 Oct 2026, updated 4 Nov 2026 (§17: night shift, night allowance, optional project, loaders) · **Owner:** Tannu (Qatar Living)
+> **Version:** 1.2 · **Date:** 27 Oct 2026, updated 4 Nov 2026 (§17 v1.1: night shift, night allowance, optional project, loaders — live; §18 v1.2: "Attendance manager" access role — live) · **Owner:** Tannu (Qatar Living)
 > **Audience:** An AI coding agent in VS Code (Copilot / Claude / Cursor) that builds the full project from this document, and the developers who review it.
 
 ---
@@ -28,9 +28,10 @@ A web app to manage employees, the projects they are assigned to, their daily at
 | Access role | Can do |
 |---|---|
 | **Admin** | Everything: create/edit/delete all data, manage users, generate and manage invoices, change settings. |
+| **Attendance manager** (v1.2, §18) | Adds and edits employees, marks attendance on every attendance screen, reads night allowance (incl. CSV). Never sees invoices or billing money. Everything else read-only. |
 | **Viewer** (normal user) | Read-only access to every screen. Can view and download invoice PDFs. Cannot create, edit, delete, mark attendance, or change status. |
 
-> Naming rule: **"access role"** = Admin/Viewer (login permissions). **"job role"** = Full-Stack Developer, Backend, etc. (what the employee does). Keep these as separate tables and separate UI labels everywhere.
+> Naming rule: **"access role"** = Admin/Attendance manager/Viewer (login permissions). **"job role"** = Full-Stack Developer, Backend, etc. (what the employee does). Keep these as separate tables and separate UI labels everywhere.
 
 ---
 
@@ -114,7 +115,7 @@ Human-readable auto IDs: employees and projects also get a **display code** gene
 ### 4.1 Users & access
 
 ```sql
-create type access_role as enum ('admin', 'viewer');
+create type access_role as enum ('admin', 'viewer');  -- + 'attendance_manager' (migration 0012, §18)
 
 create table profiles (
   id uuid primary key references auth.users on delete cascade,
@@ -483,6 +484,10 @@ Storage bucket `invoices` (private) and `branding` (private): read for active us
 ### 5.5 Authorization in the app
 - Server: every mutating Server Action starts with `await requireAdmin()` (throws 403). RLS is the second line of defence.
 - UI: a `useIsAdmin()` hook hides create/edit/delete/status buttons for viewers. Viewers who open an edit URL get a 403 page.
+- v1.2 (§18): `src/lib/auth/permissions.ts` holds the role matrix. Actions other roles may run use
+  `permittedAction(permission, …)` / `requirePermission()`; client components use `useCan()`
+  (`manageEmployees`, `markAttendance`, `seeMoney`); the middleware (`requiredAccess()`) returns a real 403 before
+  streaming starts. RLS mirrors it with `can_manage_attendance()` and `can_see_money()`.
 
 ---
 
@@ -705,7 +710,7 @@ Employee B, USD 2,100, assignment starts 22 Oct, no leave. Working days from 22 
 
 ## 10. UI / UX
 
-- Layout: collapsible left sidebar (Dashboard, Employees, Projects, Attendance, Holidays, Invoices, Admin ▸ Users / Roles & Designations / Settings), top bar with global search (employees, projects, invoices) and user menu (change password, logout). Admin section hidden for viewers.
+- Layout: collapsible left sidebar (Dashboard, Employees, Projects, Attendance, Night allowance, Holidays, Invoices, Admin ▸ Users / Roles & Designations / Settings), top bar with global search (employees, projects, invoices) and user menu (change password, logout). Admin section hidden for viewers and attendance managers; Invoices hidden for attendance managers.
 - Light/dark theme. Responsive down to 768 px; lists scroll horizontally on mobile.
 - Status badge colours consistent everywhere (attendance colours from DB).
 - Dates displayed `dd MMM yyyy` (e.g. 08 Oct 2026); money with currency code and thousands separators.
@@ -1190,14 +1195,17 @@ twice. Shared primitives in `src/components/`:
 
 ### 17.8 Acceptance criteria (v1.1) and open questions
 
-- [ ] Night Shift can be marked from every attendance screen and is billed to clients like Present.
-- [ ] Night allowance counts only night shifts on working days (no weekends, no holidays, no leave), per employee per month.
-- [ ] All three methods work; default rate, per-employee rate, nights override and amount override are editable by admins with history and reasons; viewers read-only.
-- [ ] Months can be finalised (locked) and reopened; later data changes show Outdated.
-- [ ] Report with filters, totals and CSV; employee tab; settings card; dashboard card.
-- [ ] Employees without any project can be created, marked (incl. Night Shift) and get a night allowance.
-- [ ] Every navigation and API call shows a loader; no double submits; forbidden pages still return 403.
-- [ ] All suites pass; `src/lib/billing/**` stays at 100 % coverage.
+All met — CI green at `e9fccfc` (unit, component, pgTAP, integration, e2e incl. `11-night-allowance`), live 4 Nov 2026.
+
+
+- [x] Night Shift can be marked from every attendance screen and is billed to clients like Present.
+- [x] Night allowance counts only night shifts on working days (no weekends, no holidays, no leave), per employee per month.
+- [x] All three methods work; default rate, per-employee rate, nights override and amount override are editable by admins with history and reasons; viewers read-only.
+- [x] Months can be finalised (locked) and reopened; later data changes show Outdated.
+- [x] Report with filters, totals and CSV; employee tab; settings card; dashboard card.
+- [x] Employees without any project can be created, marked (incl. Night Shift) and get a night allowance.
+- [x] Every navigation and API call shows a loader; no double submits; forbidden pages still return 403.
+- [x] All suites pass; `src/lib/billing/**` stays at 100 % coverage.
 
 | Question | Answer |
 |---|---|
@@ -1266,6 +1274,18 @@ twice. Shared primitives in `src/components/`:
 - Integration: manager creates an employee, saves attendance, is FORBIDDEN on invoice / night-allowance writes.
 - E2E: manager signs in → adds an employee → marks attendance → opens night allowance → `/invoices` returns 403 and
   the nav has no Invoices.
-- [ ] Admin can give a user the Attendance manager role; the user can add/edit employees and mark attendance.
-- [ ] The manager sees night allowance (read-only, CSV) but no invoices or money anywhere (UI + direct DB queries).
-- [ ] Viewer and admin behaviour unchanged; all suites green.
+- [x] Admin can give a user the Attendance manager role; the user can add/edit employees and mark attendance.
+- [x] The manager sees night allowance (read-only, CSV) but no invoices or money anywhere (UI + direct DB queries).
+- [x] Viewer and admin behaviour unchanged; all suites green.
+
+Status: **done & live 4 Nov 2026** — cloud SQL `08_attendance_manager.sql` run by the user, CI green at `71cf095`
+(incl. pgTAP `attendance_manager.test.sql`, integration `attendance-manager.test.ts`, e2e `12-attendance-manager`),
+Vercel READY. Demo login (local seed only): `manager@example.com` / `Manager@12345`.
+
+| Decision (answered 4 Nov 2026) | Answer |
+|---|---|
+| Role name | **Attendance manager** |
+| What is hidden | **Invoices + money only** (projects, holidays stay visible read-only) |
+| Employees | **Add + edit** (no delete, on/off-role, rates) |
+| Night allowance | **View + CSV** (no overrides, finalise/reopen, rates) |
+| Project tasks (have amounts) | Hidden with the money (SPEC-NOTE, not asked) |

@@ -2,21 +2,24 @@
 
 > **Purpose:** single place to resume work if context is lost. Read this first, then `SPEC.md` (requirements)
 > and `docs/ARCHITECTURE.md` (code conventions).
-> **Last updated:** 4 Nov 2026 — **v1.1 spec added (`SPEC.md` §17, §3f)**. Before that, 3 Nov: **CI fully green incl. e2e** (commit `42902dc`); change request 7 (choose invoice
-> number in the wizard) live & verified; all 10 DB migrations applied; first real invoice S2536 generated. Start at §0.1.
+> **Last updated:** 4 Nov 2026 — **v1.1 (night shift + night allowance + optional project + loaders, `SPEC.md` §17,
+> §3f) and v1.2 ("Attendance manager" role, `SPEC.md` §18, §3g) both LIVE**; CI green at `71cf095`; all 12 DB
+> migrations applied (cloud `07` + `08` run by the user). Start at §0.1.
 
 Legend: `[x]` done & verified · `[~]` written but **not yet run/verified** · `[ ]` not started
 
 ---
 
-## 0. Resume here (state at end of 28 Oct 2026)
+## 0. Resume here (state at end of 4 Nov 2026)
 
 ### 0.1 Start here (in this order)
 0. ~~Change request 7 — choose the invoice number while generating~~ — **DONE & live 3 Nov** (§3d).
 1. ~~Fix the CI end-to-end tests~~ — **DONE 3 Nov**: whole pipeline green incl. Playwright e2e (§3c).
-0a. **v1.1 — change requests 9–11 (4 Nov): night shift + night allowance, optional project, loaders** — **BUILT**
-    (phases 14–18, §3f). **Waiting for the user to run `supabase/cloud-setup/07_night_shift_allowance.sql`** on
-    Supabase; then push the local commits (phase 19) → CI → Vercel → live check.
+0a. ~~v1.1 — change requests 9–11: night shift + night allowance, optional project, loaders~~ — **DONE & live 4 Nov**
+    (§3f; default rate INR 180 per night from 1 Nov 2026 set by the user). User to check `/night-allowance` for
+    November on the live site.
+0b. ~~v1.2 — change request 12: "Attendance manager" access role~~ — **DONE & live 4 Nov** (§3g). User to give a
+    real user the role (Admin ▸ Users ▸ Access role) and try it live.
 1a. **Change request 8 — download invoice as PDF / Word / image** (§3e): live since `1d34ad4`; user to try it.
 2. **Open questions for the user** (ask, then record the answer):
    - **Role names on invoice lines:** lines print the job role ("Frontend", "Backend", "DevOps"); references use
@@ -37,16 +40,17 @@ tests fixed and green in CI · Round 5 PDF (single page + leave dates) · change
 billing cycle) built, DB-upgraded, deployed and live-checked.
 
 ### 0.2 Where everything stands
-- **Code:** all 13 build phases of `SPEC.md` §14 done + 5 rounds of invoice-format change requests (§3a) + change
-  request 6 task invoices (§3b) + Vercel fixes. Lint/typecheck/build clean, **469 unit/component tests pass**
-  (92.3 % lines / 85.2 % branches, billing 100 %); 105 pgTAP assertions + 10 integration test files green in CI.
+- **Code:** all 13 build phases of `SPEC.md` §14 done + invoice-format rounds (§3a) + CR 6 task invoices (§3b) +
+  CR 7 choose invoice number (§3d) + CR 8 download formats (§3e) + v1.1 CR 9–11 (§3f) + v1.2 CR 12 (§3g).
+  Lint/typecheck/build clean, **579 unit/component tests pass** (billing 100 %); **193 pgTAP assertions**
+  (`pnpm db:check`) + 12 integration test files + 16 e2e specs green in CI (`71cf095`).
 - **Repo (main):** https://github.com/tannuthakur/Attendance — branch `main`, **PUBLIC repo** → never commit secrets,
   bank details, the logo/signature images or `.env.local` (history scanned 27 Oct: clean). Commit + push after
   every change. `tannuthakur/attendance_payroll` is an OLD private copy — don't use it.
 - **Live app:** https://attendancepayroll.vercel.app (Vercel project `attendance_payroll`, team `tannu17`,
   team id `team_bZreo23qVKrfMQG46jxgCLeW`, project id `prj_iJWoINKFYYiBUQg3mvTbt8C0jswm`, runtime Node 24).
-  - Login, all 10 main pages, **PDF preview popup + download** (27–28 Oct) and the **task invoice flow** (28 Oct)
-    verified on production. Production = commit `8dc8525` (= `main`).
+  - Login, all main pages, **PDF preview popup + download** (27–28 Oct) and the **task invoice flow** (28 Oct)
+    verified on production. Production = latest `main` (auto-deploy; `71cf095` + TODO commits on 4 Nov).
   - **Git-linked to `tannuthakur/Attendance` (`main`) since 28 Oct → every push to `main` deploys to production
     automatically** (a "Vercel" status appears on the commit in GitHub). Manual fallback:
     `set -a; . ./.env.local; set +a; npx -y vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" --scope tannu17`
@@ -59,10 +63,14 @@ billing cycle) built, DB-upgraded, deployed and live-checked.
   - Vercel token `VERCEL_TOKEN` is in `.env.local` (was pasted in chat → user should delete it when done; the CLI
     also added `VERCEL_OIDC_TOKEN` there).
 - **Database:** Supabase Cloud project `ifslmdsqykywsavdvium` (URL/keys in `.env.local`).
-  - All 10 migrations applied (`01_schema.sql` + `04` + `05` + `06_choose_invoice_number.sql`), verified 3 Nov.
-    **No pending migration.** New DB changes → give the user a `supabase/cloud-setup/0N_*.sql` to run BEFORE pushing. New DB changes → give the user a `supabase/cloud-setup/0N_*.sql` to run BEFORE pushing.
+  - All 12 migrations applied (`01_schema.sql` + `04` + `05` + `06` + `07_night_shift_allowance.sql` +
+    `08_attendance_manager.sql`; 07 and 08 run by the user on 4 Nov). **No pending migration.** New DB changes →
+    give the user a `supabase/cloud-setup/0N_*.sql` (add it to `scripts/build-cloud-setup.mjs` → `pnpm db:bundle`)
+    to run BEFORE pushing the code that needs it.
+  - Night allowance: payroll currency INR, default weekend Sat + Sun, default rate **INR 180 per night from
+    1 Nov 2026** (inserted by the user in the SQL Editor).
   - Admin `admin@yopmail.com` (password = `SEED_ADMIN_PASSWORD` in `.env.local`, digits only → should be changed).
-    Only user so far (no viewer yet).
+    Only user so far (no viewer / attendance manager yet). Access roles: admin, attendance manager, viewer (§18).
   - Real data (3 Nov): 12 employees, 3 projects (Saudi Living PRJ-0002 `54dc9c01-…`, Qatar Living PRJ-0003
     `225b07c7-…`, task-only "Foojan Website - Redesign" PRJ-0005 with 1 open task $800), 370 attendance rows (to
     2 Nov), 3 holidays. Invoices: **S2536** (first real one — task invoice for Foojan, USD 800, issued 3 Nov, PDF
@@ -84,7 +92,7 @@ billing cycle) built, DB-upgraded, deployed and live-checked.
 ```bash
 cd /Users/sunfocus/Documents/NewInvoiceGenerated
 pnpm install
-pnpm lint && pnpm typecheck && pnpm test      # should be green (469 tests)
+pnpm lint && pnpm typecheck && pnpm test      # should be green (579 tests)
 pnpm build && pnpm start                       # http://localhost:3000
 # if port 3000 is busy:  lsof -ti tcp:3000 | xargs kill
 pnpm db:check                                  # migrations + seed + pgTAP on PGlite (no Docker) — run after DB changes
@@ -529,6 +537,14 @@ holidays still read-only); employees **add + edit** (no delete / on-off-role / r
 - Employee lines use the job role name ("Frontend", "Backend", "DevOps") — reference uses "Frontend Developer",
   "DevOps Engineer": set *Role on project* on the assignment or rename the job roles in Admin ▸ Roles.
 - PDF font is Helvetica (built-in); the reference uses a DejaVu-like font — layout matches, glyph shapes differ slightly.
+- Playwright report of a failed CI run (traces, screenshots): download the `playwright-report` artifact with the
+  GitHub credential git already uses (`git credential fill`), read-only — used 4 Nov to diagnose e2e 10.
+- Global click listeners must use the **capture phase**: `next/link` calls `preventDefault()` in its own handler, so
+  a bubbling listener sees `defaultPrevented` (that kept `TopProgressBar` from ever starting on link clicks).
+- Postgres enum values added in a migration are compared as **text** (`access_role::text in (…)`) so the same file
+  also runs inside one transaction (cloud `01_schema.sql`).
+- `src/types/database.ts` is hand-generated (`node scripts/gen-db-types.mjs`); CI warns it differs from
+  `supabase gen types` — expected until someone with Docker runs `pnpm db:types`.
 
 ## 6. Where things are
 
